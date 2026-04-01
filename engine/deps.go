@@ -26,7 +26,7 @@ func EnsureDeps(ctx context.Context, dir string, deps map[string]config.Dep) err
 
 func startDep(ctx context.Context, dir, name string, dep config.Dep) error {
 	for i, strategy := range dep.Start {
-		_ = RunShell(ctx, dir, strategy)
+		RunShell(ctx, dir, strategy) //nolint:errcheck
 
 		timeout := strategyTimeout
 		if deadline, ok := ctx.Deadline(); ok {

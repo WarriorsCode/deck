@@ -48,7 +48,7 @@ func (e *Engine) Start() error {
 // Stop kills all services and runs post-stop hooks.
 func (e *Engine) Stop() {
 	e.pm.StopAll()
-	RunHooks(context.Background(), e.dir, e.cfg.Hooks.PostStop, true)
+	RunHooks(context.Background(), e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
 }
 
 // Status returns status of all managed services.

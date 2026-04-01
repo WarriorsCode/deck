@@ -2,6 +2,7 @@ version: "2"
 run:
   concurrency: 8
 output:
+  sort-results: true
   sort-order:
     - linter
     - file

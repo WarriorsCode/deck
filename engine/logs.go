@@ -86,7 +86,7 @@ func tailFile(ctx context.Context, name string, cfg LogConfig, w io.Writer) {
 				continue
 			}
 		}
-		f.Seek(0, io.SeekEnd)
+		f.Seek(0, io.SeekEnd) //nolint:errcheck
 
 		scanner := bufio.NewScanner(f)
 		for {

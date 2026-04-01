@@ -68,8 +68,10 @@ func TestTailLogs(t *testing.T) {
 	go TailLogs(ctx, services, &buf)
 
 	time.Sleep(200 * time.Millisecond)
-	f, _ := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY, 0644)
-	f.WriteString("line2\n")
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY, 0644)
+	require.NoError(t, err)
+	_, err = f.WriteString("line2\n")
+	require.NoError(t, err)
 	f.Close()
 
 	<-ctx.Done()

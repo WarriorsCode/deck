@@ -30,8 +30,8 @@ type ProcessManager struct {
 func NewProcessManager(deckDir string) *ProcessManager {
 	pidDir := filepath.Join(deckDir, "pids")
 	logDir := filepath.Join(deckDir, "logs")
-	os.MkdirAll(pidDir, 0755)
-	os.MkdirAll(logDir, 0755)
+	os.MkdirAll(pidDir, 0755) //nolint:errcheck
+	os.MkdirAll(logDir, 0755) //nolint:errcheck
 	return &ProcessManager{deckDir: deckDir, pidDir: pidDir, logDir: logDir}
 }
 
@@ -65,7 +65,7 @@ func (pm *ProcessManager) Start(name string, svc config.Service) error {
 		return fmt.Errorf("writing PID file for %s: %w", name, err)
 	}
 
-	go cmd.Wait()
+	go cmd.Wait() //nolint:errcheck
 
 	return nil
 }
@@ -97,9 +97,9 @@ func (pm *ProcessManager) Stop(name string) error {
 
 	pgid, err := syscall.Getpgid(pid)
 	if err == nil {
-		syscall.Kill(-pgid, syscall.SIGTERM)
+		syscall.Kill(-pgid, syscall.SIGTERM) //nolint:errcheck
 	} else {
-		syscall.Kill(pid, syscall.SIGTERM)
+		syscall.Kill(pid, syscall.SIGTERM) //nolint:errcheck
 	}
 
 	deadline := time.After(5 * time.Second)
@@ -109,9 +109,9 @@ func (pm *ProcessManager) Stop(name string) error {
 		select {
 		case <-deadline:
 			if pgid != 0 {
-				syscall.Kill(-pgid, syscall.SIGKILL)
+				syscall.Kill(-pgid, syscall.SIGKILL) //nolint:errcheck
 			} else {
-				syscall.Kill(pid, syscall.SIGKILL)
+				syscall.Kill(pid, syscall.SIGKILL) //nolint:errcheck
 			}
 			return nil
 		case <-ticker.C:
@@ -130,7 +130,7 @@ func (pm *ProcessManager) StopAll() {
 	for _, e := range entries {
 		if filepath.Ext(e.Name()) == ".pid" {
 			name := strings.TrimSuffix(e.Name(), ".pid")
-			pm.Stop(name)
+			pm.Stop(name) //nolint:errcheck
 		}
 	}
 }
