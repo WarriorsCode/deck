@@ -67,9 +67,30 @@ func (e *Engine) Stop() {
 	RunHooks(context.Background(), e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
 }
 
-// Status returns status of all managed services.
+// Status returns status of all configured services, merging live PID data.
 func (e *Engine) Status() []ServiceStatus {
-	return e.pm.Status()
+	live := e.pm.Status()
+	liveByName := make(map[string]ServiceStatus, len(live))
+	for _, s := range live {
+		liveByName[s.Name] = s
+	}
+
+	var statuses []ServiceStatus
+	e.cfg.Services.Each(func(name string, svc config.Service) {
+		s := ServiceStatus{
+			Name:    name,
+			Port:    svc.Port,
+			Status:  "stopped",
+			Type:    "service",
+			LogPath: filepath.Join(e.pm.logDir, name+".log"),
+		}
+		if ls, ok := liveByName[name]; ok {
+			s.PID = ls.PID
+			s.Status = ls.Status
+		}
+		statuses = append(statuses, s)
+	})
+	return statuses
 }
 
 // LogConfigs returns log configurations for all services in config-defined order.

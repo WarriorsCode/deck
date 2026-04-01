@@ -9,11 +9,11 @@ import (
 )
 
 type Config struct {
-	Name      string                `yaml:"name"`
-	Bootstrap []BootstrapStep       `yaml:"bootstrap"`
-	Deps      Map[Dep]       `yaml:"deps"`
-	Hooks     Hooks                 `yaml:"hooks"`
-	Services  Map[Service]   `yaml:"services"`
+	Name      string          `yaml:"name"`
+	Bootstrap []BootstrapStep `yaml:"bootstrap"`
+	Deps      Map[Dep]        `yaml:"deps"`
+	Hooks     Hooks           `yaml:"hooks"`
+	Services  Map[Service]    `yaml:"services"`
 }
 
 type BootstrapStep struct {

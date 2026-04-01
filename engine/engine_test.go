@@ -53,7 +53,8 @@ func TestEngineStartStop(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 	statuses = eng.Status()
-	assert.Empty(t, statuses)
+	require.Len(t, statuses, 1)
+	assert.Equal(t, "stopped", statuses[0].Status)
 }
 
 func TestEngineStartRollback(t *testing.T) {

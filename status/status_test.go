@@ -44,3 +44,24 @@ func TestFormatInvalidTemplate(t *testing.T) {
 	_, err := Format(testEntries, "{{.Invalid")
 	require.Error(t, err)
 }
+
+func TestFormatTableWithLogPath(t *testing.T) {
+	entries := []engine.ServiceStatus{
+		{Name: "api", PID: 123, Port: 4000, Status: "running", Type: "service", LogPath: ".deck/logs/api.log"},
+	}
+	out, err := Format(entries, "")
+	require.NoError(t, err)
+	assert.Contains(t, out, "LOG")
+	assert.Contains(t, out, ".deck/logs/api.log")
+}
+
+func TestFormatTableStoppedService(t *testing.T) {
+	entries := []engine.ServiceStatus{
+		{Name: "api", PID: 0, Port: 4000, Status: "stopped", Type: "service", LogPath: ".deck/logs/api.log"},
+	}
+	out, err := Format(entries, "")
+	require.NoError(t, err)
+	assert.Contains(t, out, "api")
+	assert.Contains(t, out, "4000")
+	assert.Contains(t, out, "stopped")
+}

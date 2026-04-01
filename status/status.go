@@ -27,9 +27,21 @@ func Format(entries []engine.ServiceStatus, format string) (string, error) {
 }
 
 func formatTable(entries []engine.ServiceStatus) (string, error) {
+	hasLog := false
+	for _, e := range entries {
+		if e.LogPath != "" {
+			hasLog = true
+			break
+		}
+	}
+
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "SERVICE\tPID\tPORT\tSTATUS")
+	if hasLog {
+		fmt.Fprintln(w, "SERVICE\tPID\tPORT\tSTATUS\tLOG")
+	} else {
+		fmt.Fprintln(w, "SERVICE\tPID\tPORT\tSTATUS")
+	}
 	for _, e := range entries {
 		pid := fmt.Sprintf("%d", e.PID)
 		if e.PID == 0 {
@@ -43,7 +55,11 @@ func formatTable(entries []engine.ServiceStatus) (string, error) {
 		if e.Type == "dep" {
 			status += " (dep)"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", e.Name, pid, port, status)
+		if hasLog {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", e.Name, pid, port, status, e.LogPath)
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", e.Name, pid, port, status)
+		}
 	}
 	w.Flush()
 	return strings.TrimRight(buf.String(), "\n"), nil

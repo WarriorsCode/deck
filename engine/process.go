@@ -14,11 +14,12 @@ import (
 )
 
 type ServiceStatus struct {
-	Name   string `json:"name"`
-	PID    int    `json:"pid"`
-	Port   int    `json:"port"`
-	Status string `json:"status"`
-	Type   string `json:"type"`
+	Name    string `json:"name"`
+	PID     int    `json:"pid"`
+	Port    int    `json:"port"`
+	Status  string `json:"status"`
+	Type    string `json:"type"`
+	LogPath string `json:"log_path,omitempty"`
 }
 
 type ProcessManager struct {
