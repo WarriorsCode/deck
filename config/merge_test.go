@@ -108,3 +108,30 @@ services:
 	require.NoError(t, err)
 	assert.Equal(t, 1, cfg.Services.Len())
 }
+
+func TestMergePreservesOrder(t *testing.T) {
+	base := `
+services:
+  alpha:
+    run: echo a
+    port: 1000
+  beta:
+    run: echo b
+  gamma:
+    run: echo c
+`
+	local := `
+services:
+  beta:
+    port: 2000
+  delta:
+    run: echo d
+`
+	cfg, err := ParseWithOverride([]byte(base), []byte(local))
+	require.NoError(t, err)
+	// Base order preserved, new key appended.
+	assert.Equal(t, []string{"alpha", "beta", "gamma", "delta"}, cfg.Services.Keys())
+	beta := mustGet(t, cfg.Services, "beta")
+	assert.Equal(t, 2000, beta.Port)
+	assert.Equal(t, "echo b", beta.Run) // not overridden
+}
