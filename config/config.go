@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -79,6 +81,24 @@ func Parse(data []byte) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// LoadFile loads deck.yaml from path, merging deck.local.yaml if it exists in the same directory.
+func LoadFile(path string) (*Config, error) {
+	base, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", filepath.Base(path), err)
+	}
+	dir := filepath.Dir(path)
+	localPath := filepath.Join(dir, "deck.local.yaml")
+	local, err := os.ReadFile(localPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Parse(base)
+		}
+		return nil, fmt.Errorf("reading deck.local.yaml: %w", err)
+	}
+	return ParseWithOverride(base, local)
 }
 
 func validateHookKeys(data []byte) error {
