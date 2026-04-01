@@ -33,7 +33,7 @@ func ParseWithOverride(base, local []byte) (*Config, error) {
 // deepMerge merges src into dst. Maps merge recursively by key.
 // Everything else (lists, scalars) in src replaces dst.
 func deepMerge(dst, src map[string]any) map[string]any {
-	out := make(map[string]any)
+	out := make(map[string]any, len(dst)+len(src))
 	for k, v := range dst {
 		out[k] = v
 	}
