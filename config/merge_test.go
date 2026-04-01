@@ -30,9 +30,10 @@ deps:
 `
 	cfg, err := ParseWithOverride([]byte(base), []byte(local))
 	require.NoError(t, err)
-	assert.Equal(t, "pg_isready", cfg.Deps["postgres"].Check)
-	assert.Equal(t, []string{"brew services start postgresql"}, []string(cfg.Deps["postgres"].Start))
-	assert.Equal(t, []string{"brew services stop postgresql"}, []string(cfg.Deps["postgres"].Stop))
+	pg := mustGet(t, cfg.Deps, "postgres")
+	assert.Equal(t, "pg_isready", pg.Check)
+	assert.Equal(t, []string{"brew services start postgresql"}, []string(pg.Start))
+	assert.Equal(t, []string{"brew services stop postgresql"}, []string(pg.Stop))
 }
 
 func TestMergeOverrideServicePort(t *testing.T) {
@@ -49,8 +50,9 @@ services:
 `
 	cfg, err := ParseWithOverride([]byte(base), []byte(local))
 	require.NoError(t, err)
-	assert.Equal(t, "go run .", cfg.Services["api"].Run)
-	assert.Equal(t, 5000, cfg.Services["api"].Port)
+	api := mustGet(t, cfg.Services, "api")
+	assert.Equal(t, "go run .", api.Run)
+	assert.Equal(t, 5000, api.Port)
 }
 
 func TestMergeAddService(t *testing.T) {
@@ -66,8 +68,9 @@ services:
 `
 	cfg, err := ParseWithOverride([]byte(base), []byte(local))
 	require.NoError(t, err)
-	assert.Len(t, cfg.Services, 2)
-	assert.Equal(t, "go run ./cmd/worker", cfg.Services["worker"].Run)
+	assert.Equal(t, 2, cfg.Services.Len())
+	worker := mustGet(t, cfg.Services, "worker")
+	assert.Equal(t, "go run ./cmd/worker", worker.Run)
 }
 
 func TestMergeListReplacesEntirely(t *testing.T) {
@@ -103,5 +106,5 @@ services:
 `
 	cfg, err := ParseWithOverride([]byte(base), nil)
 	require.NoError(t, err)
-	assert.Len(t, cfg.Services, 1)
+	assert.Equal(t, 1, cfg.Services.Len())
 }

@@ -35,12 +35,22 @@ func (e *Engine) Preflight(ctx context.Context) error {
 	return RunHooks(ctx, e.dir, e.cfg.Hooks.PreStart, false)
 }
 
-// Start launches all services.
+// Start launches all services in config-defined order.
+// On failure, already-started services are rolled back.
 func (e *Engine) Start() error {
-	for name, svc := range e.cfg.Services {
+	var started []string
+	err := e.cfg.Services.EachErr(func(name string, svc config.Service) error {
 		if err := e.pm.Start(name, svc); err != nil {
 			return err
 		}
+		started = append(started, name)
+		return nil
+	})
+	if err != nil {
+		for _, name := range started {
+			e.pm.Stop(name) //nolint:errcheck
+		}
+		return err
 	}
 	return nil
 }
@@ -56,11 +66,11 @@ func (e *Engine) Status() []ServiceStatus {
 	return e.pm.Status()
 }
 
-// LogConfigs returns log configurations for all services.
+// LogConfigs returns log configurations for all services in config-defined order.
 func (e *Engine) LogConfigs() map[string]LogConfig {
-	configs := make(map[string]LogConfig, len(e.cfg.Services))
+	configs := make(map[string]LogConfig, e.cfg.Services.Len())
 	i := 0
-	for name, svc := range e.cfg.Services {
+	e.cfg.Services.Each(func(name string, svc config.Service) {
 		color := svc.Color
 		if color == "" && i < len(defaultPalette) {
 			color = defaultPalette[i]
@@ -71,6 +81,6 @@ func (e *Engine) LogConfigs() map[string]LogConfig {
 			Timestamp: svc.TimestampEnabled(),
 		}
 		i++
-	}
+	})
 	return configs
 }

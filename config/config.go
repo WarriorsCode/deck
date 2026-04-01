@@ -9,11 +9,11 @@ import (
 )
 
 type Config struct {
-	Name      string             `yaml:"name"`
-	Bootstrap []BootstrapStep    `yaml:"bootstrap"`
-	Deps      map[string]Dep     `yaml:"deps"`
-	Hooks     Hooks              `yaml:"hooks"`
-	Services  map[string]Service `yaml:"services"`
+	Name      string                `yaml:"name"`
+	Bootstrap []BootstrapStep       `yaml:"bootstrap"`
+	Deps      Map[Dep]       `yaml:"deps"`
+	Hooks     Hooks                 `yaml:"hooks"`
+	Services  Map[Service]   `yaml:"services"`
 }
 
 type BootstrapStep struct {
@@ -123,26 +123,30 @@ func validateHookKeys(data []byte) error {
 }
 
 func validate(cfg *Config) error {
-	if len(cfg.Services) == 0 {
+	if cfg.Services.Len() == 0 {
 		return fmt.Errorf("config: at least one service must be defined")
 	}
-	for name, svc := range cfg.Services {
+	var errs []error
+	cfg.Services.Each(func(name string, svc Service) {
 		if svc.Run == "" {
-			return fmt.Errorf("config: service %q: run is required", name)
+			errs = append(errs, fmt.Errorf("config: service %q: run is required", name))
 		}
-	}
-	for name, dep := range cfg.Deps {
+	})
+	cfg.Deps.Each(func(name string, dep Dep) {
 		if dep.Check == "" {
-			return fmt.Errorf("config: dep %q: check is required", name)
+			errs = append(errs, fmt.Errorf("config: dep %q: check is required", name))
 		}
 		if len(dep.Start) == 0 {
-			return fmt.Errorf("config: dep %q: start is required", name)
+			errs = append(errs, fmt.Errorf("config: dep %q: start is required", name))
 		}
-	}
+	})
 	for _, step := range cfg.Bootstrap {
 		if step.Check == "" {
-			return fmt.Errorf("config: bootstrap step %q: check is required", step.Name)
+			errs = append(errs, fmt.Errorf("config: bootstrap step %q: check is required", step.Name))
 		}
+	}
+	if len(errs) > 0 {
+		return errs[0]
 	}
 	return nil
 }

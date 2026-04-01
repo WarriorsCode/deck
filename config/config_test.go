@@ -9,6 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func mustGet[V any](t *testing.T, m Map[V], key string) V {
+	t.Helper()
+	v, ok := m.Get(key)
+	require.True(t, ok, "key %q not found", key)
+	return v
+}
+
 func TestParseValidConfig(t *testing.T) {
 	yaml := `
 name: testproject
@@ -45,14 +52,18 @@ hooks:
 	cfg, err := Parse([]byte(yaml))
 	require.NoError(t, err)
 	assert.Equal(t, "testproject", cfg.Name)
-	assert.Len(t, cfg.Services, 2)
-	assert.Equal(t, "go run ./cmd/server", cfg.Services["api"].Run)
-	assert.Equal(t, 4000, cfg.Services["api"].Port)
-	assert.Equal(t, "cyan", cfg.Services["api"].Color)
-	assert.True(t, cfg.Services["api"].TimestampEnabled())
-	assert.Len(t, cfg.Deps, 1)
-	assert.Equal(t, "pg_isready -h 127.0.0.1", cfg.Deps["postgres"].Check)
-	assert.Len(t, cfg.Deps["postgres"].Start, 2)
+	assert.Equal(t, 2, cfg.Services.Len())
+
+	api := mustGet(t, cfg.Services, "api")
+	assert.Equal(t, "go run ./cmd/server", api.Run)
+	assert.Equal(t, 4000, api.Port)
+	assert.Equal(t, "cyan", api.Color)
+	assert.True(t, api.TimestampEnabled())
+
+	assert.Equal(t, 1, cfg.Deps.Len())
+	pg := mustGet(t, cfg.Deps, "postgres")
+	assert.Equal(t, "pg_isready -h 127.0.0.1", pg.Check)
+	assert.Len(t, pg.Start, 2)
 	assert.Len(t, cfg.Bootstrap, 1)
 	assert.Len(t, cfg.Hooks.PreStart, 1)
 	assert.Len(t, cfg.Hooks.PostStop, 1)
@@ -66,8 +77,9 @@ services:
 `
 	cfg, err := Parse([]byte(yaml))
 	require.NoError(t, err)
-	assert.Len(t, cfg.Services, 1)
-	assert.True(t, cfg.Services["api"].TimestampEnabled())
+	assert.Equal(t, 1, cfg.Services.Len())
+	api := mustGet(t, cfg.Services, "api")
+	assert.True(t, api.TimestampEnabled())
 }
 
 func TestValidateNoServices(t *testing.T) {
@@ -161,9 +173,25 @@ deps:
 `
 	cfg, err := Parse([]byte(yaml))
 	require.NoError(t, err)
-	assert.Len(t, cfg.Deps["redis"].Start, 1)
-	assert.Equal(t, "docker run -d redis", cfg.Deps["redis"].Start[0])
-	assert.Len(t, cfg.Deps["redis"].Stop, 1)
+	redis := mustGet(t, cfg.Deps, "redis")
+	assert.Len(t, redis.Start, 1)
+	assert.Equal(t, "docker run -d redis", redis.Start[0])
+	assert.Len(t, redis.Stop, 1)
+}
+
+func TestParsePreservesServiceOrder(t *testing.T) {
+	yaml := `
+services:
+  alpha:
+    run: echo a
+  beta:
+    run: echo b
+  gamma:
+    run: echo c
+`
+	cfg, err := Parse([]byte(yaml))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"alpha", "beta", "gamma"}, cfg.Services.Keys())
 }
 
 func TestLoadFile(t *testing.T) {
@@ -184,7 +212,8 @@ services:
 
 	cfg, err := LoadFile(filepath.Join(dir, "deck.yaml"))
 	require.NoError(t, err)
-	assert.Equal(t, 5000, cfg.Services["api"].Port)
+	api := mustGet(t, cfg.Services, "api")
+	assert.Equal(t, 5000, api.Port)
 }
 
 func TestLoadFileNoLocal(t *testing.T) {
@@ -198,7 +227,7 @@ services:
 
 	cfg, err := LoadFile(filepath.Join(dir, "deck.yaml"))
 	require.NoError(t, err)
-	assert.Len(t, cfg.Services, 1)
+	assert.Equal(t, 1, cfg.Services.Len())
 }
 
 func TestLoadFileNotFound(t *testing.T) {

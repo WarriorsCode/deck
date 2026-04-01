@@ -170,13 +170,13 @@ func statusCmd() *cobra.Command {
 
 			statuses := eng.Status()
 
-			for name, dep := range cfg.Deps {
+			cfg.Deps.Each(func(name string, dep config.Dep) {
 				s := "stopped"
 				if engine.CheckShell(context.Background(), ".", dep.Check) {
 					s = "running"
 				}
 				statuses = append(statuses, engine.ServiceStatus{Name: name, Status: s, Type: "dep"})
-			}
+			})
 
 			out, err := status.Format(statuses, format)
 			if err != nil {

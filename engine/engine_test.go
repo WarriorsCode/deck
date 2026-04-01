@@ -20,18 +20,18 @@ func TestEngineStartStop(t *testing.T) {
 
 	cfg := &config.Config{
 		Name: "test",
-		Deps: map[string]config.Dep{
-			"fake": {Check: "true", Start: config.StringOrList{"true"}},
-		},
+		Deps: config.MapOf[config.Dep](
+			"fake", config.Dep{Check: "true", Start: config.StringOrList{"true"}},
+		),
 		Bootstrap: []config.BootstrapStep{
 			{Name: "noop", Check: "true", Run: "true"},
 		},
 		Hooks: config.Hooks{
 			PreStart: []config.Hook{{Name: "marker", Run: "touch " + marker}},
 		},
-		Services: map[string]config.Service{
-			"sleeper": {Run: "sleep 60"},
-		},
+		Services: config.MapOf[config.Service](
+			"sleeper", config.Service{Run: "sleep 60"},
+		),
 	}
 
 	eng := New(cfg, dir, deckDir)
@@ -54,4 +54,26 @@ func TestEngineStartStop(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	statuses = eng.Status()
 	assert.Empty(t, statuses)
+}
+
+func TestEngineStartRollback(t *testing.T) {
+	dir := t.TempDir()
+	deckDir := filepath.Join(dir, ".deck")
+
+	cfg := &config.Config{
+		Name: "rollback-test",
+		Services: config.MapOf[config.Service](
+			"good", config.Service{Run: "sleep 60"},
+			"bad", config.Service{Dir: "/nonexistent-dir-that-wont-exist", Run: "sleep 60"},
+		),
+	}
+
+	eng := New(cfg, dir, deckDir)
+	err := eng.Start()
+	require.Error(t, err)
+
+	// "good" should have been rolled back — no PID files left
+	time.Sleep(200 * time.Millisecond)
+	entries, _ := os.ReadDir(filepath.Join(deckDir, "pids"))
+	assert.Empty(t, entries)
 }

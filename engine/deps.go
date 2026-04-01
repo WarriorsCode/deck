@@ -12,16 +12,13 @@ const strategyTimeout = 10 * time.Second
 
 // EnsureDeps checks each dependency and starts it if needed.
 // Tries each start strategy in order until the check passes.
-func EnsureDeps(ctx context.Context, dir string, deps map[string]config.Dep) error {
-	for name, dep := range deps {
+func EnsureDeps(ctx context.Context, dir string, deps config.Map[config.Dep]) error {
+	return deps.EachErr(func(name string, dep config.Dep) error {
 		if CheckShell(ctx, dir, dep.Check) {
-			continue
+			return nil
 		}
-		if err := startDep(ctx, dir, name, dep); err != nil {
-			return err
-		}
-	}
-	return nil
+		return startDep(ctx, dir, name, dep)
+	})
 }
 
 func startDep(ctx context.Context, dir, name string, dep config.Dep) error {
