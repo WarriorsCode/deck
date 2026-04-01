@@ -179,6 +179,37 @@ deps:
 	assert.Len(t, redis.Stop, 1)
 }
 
+func TestValidateDuplicateServiceName(t *testing.T) {
+	yaml := `
+services:
+  api:
+    run: go run .
+  api:
+    run: go run ./other
+`
+	_, err := Parse([]byte(yaml))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate")
+}
+
+func TestValidateDuplicateDepName(t *testing.T) {
+	yaml := `
+services:
+  api:
+    run: go run .
+deps:
+  postgres:
+    check: pg_isready
+    start: docker run postgres
+  postgres:
+    check: pg_isready
+    start: brew services start postgresql
+`
+	_, err := Parse([]byte(yaml))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate")
+}
+
 func TestParsePreservesServiceOrder(t *testing.T) {
 	yaml := `
 services:

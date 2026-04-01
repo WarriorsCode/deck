@@ -75,12 +75,16 @@ func (m *Map[V]) UnmarshalYAML(node *yaml.Node) error {
 	for i := 0; i < len(node.Content); i += 2 {
 		keyNode := node.Content[i]
 		valNode := node.Content[i+1]
+		key := keyNode.Value
+		if _, exists := m.values[key]; exists {
+			return fmt.Errorf("duplicate key %q at line %d", key, keyNode.Line)
+		}
 		var val V
 		if err := valNode.Decode(&val); err != nil {
-			return fmt.Errorf("decoding value for key %q: %w", keyNode.Value, err)
+			return fmt.Errorf("decoding value for key %q: %w", key, err)
 		}
-		m.keys = append(m.keys, keyNode.Value)
-		m.values[keyNode.Value] = val
+		m.keys = append(m.keys, key)
+		m.values[key] = val
 	}
 	return nil
 }
