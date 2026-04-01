@@ -1,0 +1,24 @@
+version: 2
+builds:
+  - main: ./cmd/deck
+    binary: deck
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - format: tar.gz
+
+brews:
+  - repository:
+      owner: warriorscode
+      name: homebrew-tap
+    homepage: https://github.com/warriorscode/deck
+    description: Lightweight local dev orchestrator
