@@ -1,0 +1,63 @@
+version: "2"
+run:
+  concurrency: 8
+output:
+  sort-order:
+    - linter
+    - file
+    - severity
+linters:
+  default: none
+  enable:
+    - govet
+    - errcheck
+    - errorlint
+    - staticcheck
+    - unused
+    - bodyclose
+    - errname
+    - exptostd
+    - fatcontext
+    - usestdlibvars
+  settings:
+    errcheck:
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
+    errorlint:
+      errorf: true
+      errorf-multi: true
+      asserts: true
+      comparison: true
+    usestdlibvars:
+      http-status-code: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - .*\.gen\.go$
+      - vendor
+      - bin
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/warriorscode/deck)
+      custom-order: true
+      no-lex-order: false
+  exclusions:
+    generated: lax
+    paths:
+      - .*\.gen\.go$
+      - vendor
+      - bin
