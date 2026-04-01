@@ -2,6 +2,8 @@
 
 Lightweight local dev orchestrator. One command to bootstrap and run your entire stack.
 
+Named after the cyberdeck from Shadowrun — the rig a decker jacks into to run programs, manage connections, and control their environment. `deck` does the same for your local dev stack: one config, one command, everything running.
+
 ## Install
 
 ```bash
