@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 
 	"gopkg.in/yaml.v3"
 )
@@ -30,26 +31,34 @@ func ParseWithOverride(base, local []byte) (*Config, error) {
 	return Parse(out)
 }
 
-// deepMerge merges src into dst. Maps merge recursively by key.
-// Everything else (lists, scalars) in src replaces dst.
+type mergePair struct {
+	dst, src map[string]any
+}
+
+// deepMerge merges src into dst iteratively. Maps merge by key, everything else replaces.
 func deepMerge(dst, src map[string]any) map[string]any {
-	out := make(map[string]any, len(dst)+len(src))
-	for k, v := range dst {
-		out[k] = v
-	}
-	for k, v := range src {
-		dstVal, exists := out[k]
-		if !exists {
-			out[k] = v
-			continue
+	root := make(map[string]any, len(dst)+len(src))
+	maps.Copy(root, dst)
+
+	stack := []mergePair{{dst: root, src: src}}
+	for len(stack) > 0 {
+		pair := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		for k, v := range pair.src {
+			dstVal, exists := pair.dst[k]
+			if !exists {
+				pair.dst[k] = v
+				continue
+			}
+			srcMap, srcIsMap := v.(map[string]any)
+			dstMap, dstIsMap := dstVal.(map[string]any)
+			if srcIsMap && dstIsMap {
+				stack = append(stack, mergePair{dst: dstMap, src: srcMap})
+				continue
+			}
+			pair.dst[k] = v
 		}
-		srcMap, srcIsMap := v.(map[string]any)
-		dstMap, dstIsMap := dstVal.(map[string]any)
-		if srcIsMap && dstIsMap {
-			out[k] = deepMerge(dstMap, srcMap)
-		} else {
-			out[k] = v
-		}
 	}
-	return out
+	return root
 }
