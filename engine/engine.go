@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/warriorscode/deck/config"
 )
+
+const shutdownTimeout = 30 * time.Second
 
 type Engine struct {
 	cfg *config.Config
@@ -56,15 +59,18 @@ func (e *Engine) Start() error {
 }
 
 // Shutdown runs post-stop hooks first, then kills services (deck up ordering per spec).
-func (e *Engine) Shutdown() {
-	RunHooks(context.Background(), e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
+// Hooks are bounded by ctx to prevent wedging on a hung hook.
+func (e *Engine) Shutdown(ctx context.Context) {
+	RunHooks(ctx, e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
 	e.pm.StopAll()
 }
 
 // Stop kills all services, then runs post-stop hooks (deck stop ordering).
 func (e *Engine) Stop() {
 	e.pm.StopAll()
-	RunHooks(context.Background(), e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	RunHooks(ctx, e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
 }
 
 // Status returns status of all configured services, merging live PID data.

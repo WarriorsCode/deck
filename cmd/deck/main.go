@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -83,7 +84,14 @@ func upCmd() *cobra.Command {
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 			go func() {
 				<-sigCh
-				eng.Shutdown()
+				shutCtx, shutCancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer shutCancel()
+				// Second signal force-exits.
+				go func() {
+					<-sigCh
+					os.Exit(1)
+				}()
+				eng.Shutdown(shutCtx)
 				cancel()
 			}()
 
