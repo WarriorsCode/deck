@@ -83,8 +83,8 @@ func upCmd() *cobra.Command {
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 			go func() {
 				<-sigCh
+				eng.Shutdown()
 				cancel()
-				eng.Stop()
 			}()
 
 			engine.TailLogs(ctx, eng.LogConfigs(), os.Stdout)

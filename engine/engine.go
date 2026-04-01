@@ -55,7 +55,13 @@ func (e *Engine) Start() error {
 	return nil
 }
 
-// Stop kills all services and runs post-stop hooks.
+// Shutdown runs post-stop hooks first, then kills services (deck up ordering per spec).
+func (e *Engine) Shutdown() {
+	RunHooks(context.Background(), e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
+	e.pm.StopAll()
+}
+
+// Stop kills all services, then runs post-stop hooks (deck stop ordering).
 func (e *Engine) Stop() {
 	e.pm.StopAll()
 	RunHooks(context.Background(), e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
