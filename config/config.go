@@ -102,7 +102,7 @@ func LoadFile(path string) (*Config, error) {
 }
 
 func validateHookKeys(data []byte) error {
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func validateHookKeys(data []byte) error {
 	if !ok {
 		return nil
 	}
-	hooksMap, ok := hooksRaw.(map[string]interface{})
+	hooksMap, ok := hooksRaw.(map[string]any)
 	if !ok {
 		return nil
 	}

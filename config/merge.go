@@ -13,7 +13,7 @@ func ParseWithOverride(base, local []byte) (*Config, error) {
 		return Parse(base)
 	}
 
-	var baseRaw, localRaw map[string]interface{}
+	var baseRaw, localRaw map[string]any
 	if err := yaml.Unmarshal(base, &baseRaw); err != nil {
 		return nil, fmt.Errorf("parsing base config: %w", err)
 	}
@@ -32,8 +32,8 @@ func ParseWithOverride(base, local []byte) (*Config, error) {
 
 // deepMerge merges src into dst. Maps merge recursively by key.
 // Everything else (lists, scalars) in src replaces dst.
-func deepMerge(dst, src map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
+func deepMerge(dst, src map[string]any) map[string]any {
+	out := make(map[string]any)
 	for k, v := range dst {
 		out[k] = v
 	}
@@ -43,8 +43,8 @@ func deepMerge(dst, src map[string]interface{}) map[string]interface{} {
 			out[k] = v
 			continue
 		}
-		srcMap, srcIsMap := v.(map[string]interface{})
-		dstMap, dstIsMap := dstVal.(map[string]interface{})
+		srcMap, srcIsMap := v.(map[string]any)
+		dstMap, dstIsMap := dstVal.(map[string]any)
 		if srcIsMap && dstIsMap {
 			out[k] = deepMerge(dstMap, srcMap)
 		} else {
