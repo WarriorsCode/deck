@@ -78,3 +78,65 @@ func TestEngineStartRollback(t *testing.T) {
 	entries, _ := os.ReadDir(filepath.Join(deckDir, "pids"))
 	assert.Empty(t, entries)
 }
+
+func TestShutdownTimesOutHungHook(t *testing.T) {
+	dir := t.TempDir()
+	deckDir := filepath.Join(dir, ".deck")
+
+	cfg := &config.Config{
+		Name: "hung-hook-test",
+		Hooks: config.Hooks{
+			PostStop: []config.Hook{{Name: "hang", Run: "sleep 60"}},
+		},
+		Services: config.MapOf[config.Service](
+			"svc", config.Service{Run: "sleep 60"},
+		),
+	}
+
+	eng := New(cfg, dir, deckDir)
+	require.NoError(t, eng.Start())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	eng.Shutdown(ctx)
+	elapsed := time.Since(start)
+
+	// Should complete in ~1s (context timeout), not 60s (hook sleep).
+	assert.Less(t, elapsed, 5*time.Second)
+	// Service should still be cleaned up despite hung hook.
+	statuses := eng.Status()
+	for _, s := range statuses {
+		assert.Equal(t, "stopped", s.Status)
+	}
+}
+
+func TestShutdownRunsPostStopBeforeKill(t *testing.T) {
+	dir := t.TempDir()
+	deckDir := filepath.Join(dir, ".deck")
+	hookMarker := filepath.Join(dir, "post-stop-ran")
+
+	cfg := &config.Config{
+		Name: "shutdown-order-test",
+		Hooks: config.Hooks{
+			PostStop: []config.Hook{{Name: "mark", Run: "touch " + hookMarker}},
+		},
+		Services: config.MapOf[config.Service](
+			"svc", config.Service{Run: "sleep 60"},
+		),
+	}
+
+	eng := New(cfg, dir, deckDir)
+	require.NoError(t, eng.Start())
+
+	eng.Shutdown(context.Background())
+
+	_, err := os.Stat(hookMarker)
+	require.NoError(t, err, "post-stop hook should have run")
+
+	statuses := eng.Status()
+	for _, s := range statuses {
+		assert.Equal(t, "stopped", s.Status)
+	}
+}
