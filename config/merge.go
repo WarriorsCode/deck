@@ -62,11 +62,13 @@ func mergeNodes(dst, src *yaml.Node) {
 		pair := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 
-		srcKeys := mappingIndex(pair.src)
-		for key, srcValNode := range srcKeys {
+		// Iterate src.Content directly to preserve local key order for appends.
+		for i := 0; i < len(pair.src.Content); i += 2 {
+			key := pair.src.Content[i].Value
+			srcValNode := pair.src.Content[i+1]
+
 			dstIdx := mappingKeyIndex(pair.dst, key)
 			if dstIdx < 0 {
-				// New key: append to dst (preserves src order for new keys).
 				pair.dst.Content = append(pair.dst.Content,
 					&yaml.Node{Kind: yaml.ScalarNode, Value: key},
 					srcValNode,
@@ -75,24 +77,13 @@ func mergeNodes(dst, src *yaml.Node) {
 			}
 			dstValNode := pair.dst.Content[dstIdx+1]
 
-			// Both are mappings: recurse.
 			if dstValNode.Kind == yaml.MappingNode && srcValNode.Kind == yaml.MappingNode {
 				stack = append(stack, nodePair{dst: dstValNode, src: srcValNode})
 				continue
 			}
-			// Otherwise replace.
 			pair.dst.Content[dstIdx+1] = srcValNode
 		}
 	}
-}
-
-// mappingIndex returns a map of key → value node for a mapping node.
-func mappingIndex(n *yaml.Node) map[string]*yaml.Node {
-	m := make(map[string]*yaml.Node, len(n.Content)/2)
-	for i := 0; i < len(n.Content); i += 2 {
-		m[n.Content[i].Value] = n.Content[i+1]
-	}
-	return m
 }
 
 // mappingKeyIndex returns the Content index of the key node, or -1 if not found.

@@ -126,11 +126,13 @@ services:
     port: 2000
   delta:
     run: echo d
+  epsilon:
+    run: echo e
 `
 	cfg, err := ParseWithOverride([]byte(base), []byte(local))
 	require.NoError(t, err)
-	// Base order preserved, new key appended.
-	assert.Equal(t, []string{"alpha", "beta", "gamma", "delta"}, cfg.Services.Keys())
+	// Base order preserved, multiple new keys appended in local order.
+	assert.Equal(t, []string{"alpha", "beta", "gamma", "delta", "epsilon"}, cfg.Services.Keys())
 	beta := mustGet(t, cfg.Services, "beta")
 	assert.Equal(t, 2000, beta.Port)
 	assert.Equal(t, "echo b", beta.Run) // not overridden
