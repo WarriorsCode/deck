@@ -19,6 +19,7 @@ type Config struct {
 
 type BootstrapStep struct {
 	Name  string `yaml:"name"`
+	Dir   string `yaml:"dir"`
 	Check string `yaml:"check"`
 	Run   string `yaml:"run"`
 }
@@ -36,6 +37,7 @@ type Hooks struct {
 
 type Hook struct {
 	Name    string `yaml:"name"`
+	Dir     string `yaml:"dir"`
 	Run     string `yaml:"run"`
 	EnvFile string `yaml:"env_file"`
 }
