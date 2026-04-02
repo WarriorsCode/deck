@@ -18,10 +18,11 @@ type Config struct {
 }
 
 type BootstrapStep struct {
-	Name  string `yaml:"name"`
-	Dir   string `yaml:"dir"`
-	Check string `yaml:"check"`
-	Run   string `yaml:"run"`
+	Name   string `yaml:"name"`
+	Dir    string `yaml:"dir"`
+	Check  string `yaml:"check"`
+	Run    string `yaml:"run"`
+	Prompt string `yaml:"prompt"`
 }
 
 type Dep struct {
