@@ -24,6 +24,8 @@ const colorReset = "\033[0m"
 
 var defaultPalette = []string{"cyan", "magenta", "yellow", "green", "blue", "red"}
 
+var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
 var timestampPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}`),
 	regexp.MustCompile(`^\d{2}:\d{2}:\d{2}`),
@@ -49,7 +51,12 @@ func FormatLogLine(name, line string, injectTimestamp bool) string {
 	return FormatLogLineWithColor(name, line, "cyan", injectTimestamp)
 }
 
+func StripANSI(s string) string {
+	return ansiPattern.ReplaceAllString(s, "")
+}
+
 func FormatLogLineWithColor(name, line, colorName string, injectTimestamp bool) string {
+	line = StripANSI(line)
 	var sb strings.Builder
 	code, ok := colorCodes[colorName]
 	if !ok {
