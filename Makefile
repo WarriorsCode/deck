@@ -1,6 +1,6 @@
 ## Build binary
 build:
-	go build -o bin/deck ./cmd/deck
+	go build -ldflags="-s -w -X github.com/warriorscode/deck.Version=$$(git describe --tags)" -o bin/deck ./cmd/deck
 
 ## Run tests
 test:

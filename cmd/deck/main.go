@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	deck "github.com/warriorscode/deck"
 	"github.com/warriorscode/deck/config"
 	"github.com/warriorscode/deck/engine"
 	"github.com/warriorscode/deck/status"
@@ -21,8 +22,9 @@ var configFile string
 
 func main() {
 	root := &cobra.Command{
-		Use:   "deck",
-		Short: "Lightweight local dev orchestrator",
+		Use:     "deck",
+		Short:   "Lightweight local dev orchestrator",
+		Version: deck.Version,
 	}
 
 	root.PersistentFlags().StringVarP(&configFile, "file", "f", "deck.yaml", "config file path")
