@@ -12,7 +12,7 @@ Named after the cyberdeck from Shadowrun — the rig a decker jacks into to run 
 
 ```bash
 # Homebrew
-brew install warriorscode/tap/deck
+brew install --cask warriorscode/tap/deck
 
 # Go
 go install github.com/warriorscode/deck/cmd/deck@latest
