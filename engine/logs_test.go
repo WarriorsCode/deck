@@ -3,8 +3,10 @@ package engine
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -106,5 +108,37 @@ func TestTailLogs(t *testing.T) {
 
 	output := buf.String()
 	assert.Contains(t, output, "[api]")
-	assert.Contains(t, output, "line2")
+	assert.Contains(t, output, "line1") // backlog
+	assert.Contains(t, output, "line2") // new line
+}
+
+func TestTailLogsBacklog(t *testing.T) {
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "svc.log")
+
+	// Write 30 lines, expect only last 20 in output.
+	var content strings.Builder
+	for i := 1; i <= 30; i++ {
+		fmt.Fprintf(&content, "line-%d\n", i)
+	}
+	require.NoError(t, os.WriteFile(logFile, []byte(content.String()), 0644))
+
+	var buf bytes.Buffer
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	services := map[string]LogConfig{
+		"svc": {Path: logFile, Color: "cyan", Timestamp: false},
+	}
+
+	go TailLogs(ctx, services, &buf)
+	<-ctx.Done()
+	time.Sleep(100 * time.Millisecond)
+
+	output := buf.String()
+	// Lines 1-10 should be trimmed, 11-30 should be present.
+	assert.NotContains(t, output, "line-1\n")
+	assert.NotContains(t, output, "line-10\n")
+	assert.Contains(t, output, "line-11")
+	assert.Contains(t, output, "line-30")
 }

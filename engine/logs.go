@@ -82,6 +82,22 @@ func TailLogs(ctx context.Context, services map[string]LogConfig, w io.Writer) {
 	<-ctx.Done()
 }
 
+const tailLines = 20
+
+// lastLines reads the last n lines from the current position of f,
+// then leaves the file offset at EOF for subsequent tailing.
+func lastLines(f *os.File, n int) []string {
+	scanner := bufio.NewScanner(f)
+	ring := make([]string, 0, n)
+	for scanner.Scan() {
+		if len(ring) >= n {
+			ring = append(ring[:0], ring[1:]...)
+		}
+		ring = append(ring, scanner.Text())
+	}
+	return ring
+}
+
 func tailFile(ctx context.Context, name string, cfg LogConfig, w io.Writer) {
 	for {
 		f, err := os.Open(cfg.Path)
@@ -93,7 +109,12 @@ func tailFile(ctx context.Context, name string, cfg LogConfig, w io.Writer) {
 				continue
 			}
 		}
-		f.Seek(0, io.SeekEnd) //nolint:errcheck
+
+		// Print last N lines before tailing.
+		for _, line := range lastLines(f, tailLines) {
+			formatted := FormatLogLineWithColor(name, line, cfg.Color, cfg.Timestamp)
+			fmt.Fprintln(w, formatted)
+		}
 
 		scanner := bufio.NewScanner(f)
 		for {
