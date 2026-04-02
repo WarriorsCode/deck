@@ -20,6 +20,8 @@ func RunHooks(ctx context.Context, dir string, hooks []config.Hook, bestEffort b
 			}
 			return fmt.Errorf("hook %q: %w", hook.Name, err)
 		}
+		resolved := ResolveEnv(hook.Env, env)
+		env = MergeSlice(env, resolved)
 		d := stepDir(dir, hook.Dir)
 		if err := RunShell(ctx, d, hook.Run, env); err != nil {
 			if bestEffort {

@@ -47,10 +47,12 @@ func (e *Engine) Preflight(ctx context.Context) error {
 func (e *Engine) Start() error {
 	var started []string
 	err := e.cfg.Services.EachErr(func(name string, svc config.Service) error {
-		env, err := BuildEnv(e.cfg.Env, svc.EnvFile, svc.Env)
+		baseEnv, err := BuildEnv(e.cfg.Env, svc.EnvFile, nil)
 		if err != nil {
 			return fmt.Errorf("service %q: %w", name, err)
 		}
+		resolved := ResolveEnv(svc.Env, baseEnv)
+		env := MergeSlice(baseEnv, resolved)
 		if err := e.pm.Start(name, svc, env); err != nil {
 			return err
 		}

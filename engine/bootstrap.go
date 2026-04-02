@@ -18,16 +18,17 @@ import (
 func RunBootstrap(ctx context.Context, dir string, steps []config.BootstrapStep, env []string) error {
 	for _, step := range steps {
 		d := stepDir(dir, step.Dir)
-		if CheckShell(ctx, d, step.Check, env) {
+		resolved := ResolveEnv(step.Env, env)
+		stepEnv := MergeSlice(env, resolved)
+		if CheckShell(ctx, d, step.Check, stepEnv) {
 			continue
 		}
-		stepEnv := env
 		if step.Prompt != "" {
 			extra, err := handlePrompt(step)
 			if err != nil {
 				return fmt.Errorf("bootstrap %q: %w", step.Name, err)
 			}
-			stepEnv = append(append([]string{}, env...), extra...)
+			stepEnv = append(stepEnv, extra...)
 		}
 		if err := RunShell(ctx, d, step.Run, stepEnv); err != nil {
 			return fmt.Errorf("bootstrap %q: %w", step.Name, err)

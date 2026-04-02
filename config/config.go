@@ -2,19 +2,37 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
+// Env is a string-to-string map of environment variables.
+type Env map[string]string
+
+// Merge copies all entries from other into e. Existing keys are overwritten.
+func (e Env) Merge(other Env) {
+	maps.Copy(e, other)
+}
+
+// ToSlice converts to the []string format expected by exec.Cmd.Env.
+func (e Env) ToSlice() []string {
+	s := make([]string, 0, len(e))
+	for k, v := range e {
+		s = append(s, k+"="+v)
+	}
+	return s
+}
+
 type Config struct {
-	Name      string            `yaml:"name"`
-	Env       map[string]string `yaml:"env"`
-	Bootstrap []BootstrapStep   `yaml:"bootstrap"`
-	Deps      Map[Dep]          `yaml:"deps"`
-	Hooks     Hooks             `yaml:"hooks"`
-	Services  Map[Service]      `yaml:"services"`
+	Name      string          `yaml:"name"`
+	Env       Env             `yaml:"env"`
+	Bootstrap []BootstrapStep `yaml:"bootstrap"`
+	Deps      Map[Dep]        `yaml:"deps"`
+	Hooks     Hooks           `yaml:"hooks"`
+	Services  Map[Service]    `yaml:"services"`
 }
 
 type BootstrapStep struct {
@@ -23,6 +41,7 @@ type BootstrapStep struct {
 	Check  string `yaml:"check"`
 	Run    string `yaml:"run"`
 	Prompt string `yaml:"prompt"`
+	Env    Env    `yaml:"env"`
 }
 
 type Dep struct {
@@ -41,16 +60,17 @@ type Hook struct {
 	Dir     string `yaml:"dir"`
 	Run     string `yaml:"run"`
 	EnvFile string `yaml:"env_file"`
+	Env     Env    `yaml:"env"`
 }
 
 type Service struct {
-	Dir       string            `yaml:"dir"`
-	Run       string            `yaml:"run"`
-	Port      int               `yaml:"port"`
-	Color     string            `yaml:"color"`
-	Timestamp *bool             `yaml:"timestamp"`
-	Env       map[string]string `yaml:"env"`
-	EnvFile   string            `yaml:"env_file"`
+	Dir       string `yaml:"dir"`
+	Run       string `yaml:"run"`
+	Port      int    `yaml:"port"`
+	Color     string `yaml:"color"`
+	Timestamp *bool  `yaml:"timestamp"`
+	Env       Env    `yaml:"env"`
+	EnvFile   string `yaml:"env_file"`
 }
 
 func (s Service) TimestampEnabled() bool {

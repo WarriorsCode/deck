@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/warriorscode/deck/config"
 )
 
 func TestParseEnvFile(t *testing.T) {
@@ -41,53 +43,82 @@ func TestBuildEnvPrecedence(t *testing.T) {
 	envFile := filepath.Join(dir, "test.env")
 	require.NoError(t, os.WriteFile(envFile, []byte("A=from_file\nB=from_file\n"), 0644))
 
-	globalEnv := map[string]string{"A": "from_global", "B": "from_global", "C": "from_global"}
-	stepEnv := map[string]string{"A": "from_step"}
+	globalEnv := config.Env{"A": "from_global", "B": "from_global", "C": "from_global"}
+	stepEnv := config.Env{"A": "from_step"}
 
 	result, err := BuildEnv(globalEnv, envFile, stepEnv)
 	require.NoError(t, err)
 
-	envMap := make(map[string]string, len(result))
-	for _, e := range result {
-		k, v, _ := cutString(e, "=")
-		envMap[k] = v
-	}
-
-	// Step env wins over everything.
+	envMap := toMap(result)
 	assert.Equal(t, "from_step", envMap["A"])
-	// Env file wins over global.
 	assert.Equal(t, "from_file", envMap["B"])
-	// Global fills in the rest.
 	assert.Equal(t, "from_global", envMap["C"])
 }
 
+func toMap(envSlice []string) map[string]string {
+	m := make(map[string]string, len(envSlice))
+	for _, e := range envSlice {
+		if k, v, ok := cutString(e, "="); ok {
+			m[k] = v
+		}
+	}
+	return m
+}
+
 func cutString(s, sep string) (string, string, bool) {
-	i := 0
-	for i < len(s) {
+	for i := range len(s) {
 		if s[i:i+len(sep)] == sep {
 			return s[:i], s[i+len(sep):], true
 		}
-		i++
 	}
 	return s, "", false
 }
 
 func TestBuildEnvNoFile(t *testing.T) {
-	globalEnv := map[string]string{"FOO": "bar"}
+	globalEnv := config.Env{"FOO": "bar"}
 	result, err := BuildEnv(globalEnv, "", nil)
 	require.NoError(t, err)
-
-	envMap := make(map[string]string, len(result))
-	for _, e := range result {
-		k, v, _ := cutString(e, "=")
-		envMap[k] = v
-	}
-	assert.Equal(t, "bar", envMap["FOO"])
+	assert.Equal(t, "bar", toMap(result)["FOO"])
 }
 
 func TestBuildEnvNilEverything(t *testing.T) {
 	result, err := BuildEnv(nil, "", nil)
 	require.NoError(t, err)
-	// Should at least have OS environment.
 	assert.NotEmpty(t, result)
+}
+
+func TestResolveEnvLiteral(t *testing.T) {
+	resolved := ResolveEnv(config.Env{"FOO": "bar", "BAZ": "qux"}, nil)
+	assert.Equal(t, "bar", resolved["FOO"])
+	assert.Equal(t, "qux", resolved["BAZ"])
+}
+
+func TestResolveEnvInterpolation(t *testing.T) {
+	resolved := ResolveEnv(config.Env{"GREETING": "$(echo hello)"}, nil)
+	assert.Equal(t, "hello", resolved["GREETING"])
+}
+
+func TestResolveEnvFailedCommand(t *testing.T) {
+	resolved := ResolveEnv(config.Env{"MISSING": "$(cat /nonexistent/file/xxx)"}, nil)
+	assert.Equal(t, "", resolved["MISSING"])
+}
+
+func TestResolveEnvNil(t *testing.T) {
+	assert.Nil(t, ResolveEnv(nil, nil))
+}
+
+func TestMergeSlice(t *testing.T) {
+	base := []string{"A=1", "B=2"}
+	step := config.Env{"B": "override", "C": "3"}
+	merged := MergeSlice(base, step)
+
+	m := toMap(merged)
+	assert.Equal(t, "1", m["A"])
+	assert.Equal(t, "override", m["B"])
+	assert.Equal(t, "3", m["C"])
+}
+
+func TestMergeSliceEmpty(t *testing.T) {
+	base := []string{"A=1"}
+	assert.Equal(t, base, MergeSlice(base, nil))
 }
