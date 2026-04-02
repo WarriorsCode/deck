@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icon.png" width="300" alt="deck icon" />
+</p>
+
 # deck
 
 Lightweight local dev orchestrator. One command to bootstrap and run your entire stack.
