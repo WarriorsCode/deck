@@ -24,7 +24,7 @@ const colorReset = "\033[0m"
 
 var defaultPalette = []string{"cyan", "magenta", "yellow", "green", "blue", "red"}
 
-var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
 
 var timestampPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}`),

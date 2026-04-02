@@ -60,6 +60,10 @@ func TestStripANSI(t *testing.T) {
 		{"\033[32mhello\033[0m", "hello"},
 		{"\033[42m\033[30m INFO \033[0m \033[32mconnected\033[0m", " INFO  connected"},
 		{"\033[2m[02:40:26]\033[0m starting", "[02:40:26] starting"},
+		// Complex: dim, yellow, underline, cyan, reset, red
+		{"\033[2m\033[33m@@@\033[0m \033[4m\033[2m\033[36m/path/to/file.go\033[0m\033[0m\033[2m:\033[0m\033[2m\033[31m34\033[0m", "@@@ /path/to/file.go:34"},
+		{"\033[42m\033[30m INFO \033[0m \033[32mstarting server\033[0m", " INFO  starting server"},
+		{"\033[35mdatabase\033[0m: omsx", "database: omsx"},
 		{"no ansi here", "no ansi here"},
 		{"", ""},
 	}
