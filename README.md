@@ -35,8 +35,9 @@ deck up          # starts everything, ctrl+c to stop
 | `deck stop` | Stop all services |
 | `deck restart` | Stop + start |
 | `deck status` | Show service status (supports `--format json` and Go templates) |
-| `deck logs` | Tail logs with colored prefixes |
+| `deck logs` | Tail logs with colored prefixes (shows last 20 lines of backlog) |
 | `deck init` | Create deck.yaml scaffold and update .gitignore |
+| `deck --version` | Print version |
 
 ## Configuration
 
@@ -44,11 +45,12 @@ deck up          # starts everything, ctrl+c to stop
 # deck.yaml
 name: myproject
 
-bootstrap:
-  - name: Install deps
-    check: test -d node_modules
-    run: npm install
+# Global environment variables — injected into all commands.
+env:
+  PGPASSWORD: postgres
+  PG_HOST: 127.0.0.1
 
+# External dependencies the stack needs running.
 deps:
   postgres:
     check: pg_isready -h 127.0.0.1
@@ -59,24 +61,59 @@ deps:
       - docker stop postgres && docker rm postgres
       - brew services stop postgresql@16
 
+# One-time setup tasks. Only run if check fails.
+bootstrap:
+  - name: Install deps
+    dir: ./webapp
+    check: test -d node_modules
+    run: pnpm install
+
+  - name: Set auth key
+    check: "! grep -q \"AUTH_KEY=''\" .env"
+    prompt: |
+      Paste the PEM public key from your auth provider.
+      Press Enter on an empty line when done.
+    run: ./scripts/set-auth-key.sh "$DECK_INPUT_FILE"
+
+# Lifecycle hooks.
 hooks:
   pre-start:
     - name: Run migrations
+      dir: ./api
+      env_file: ./etc/app.env
       run: goose up
   post-stop: []
 
+# Services to manage.
 services:
   api:
     dir: ./api
     run: go run ./cmd/server
     port: 4000
     color: cyan
+    env_file: ./etc/app.env
+    env:
+      NO_COLOR: "1"
   webapp:
     dir: ./webapp
     run: pnpm dev
     port: 5173
     color: magenta
 ```
+
+### Config fields
+
+| Field | Where | Description |
+|-------|-------|-------------|
+| `env` | top-level, service | Key-value env vars. Service-level merges on top of global. |
+| `env_file` | service, hook | Path to a dotenv file loaded before running. |
+| `dir` | service, bootstrap, hook | Working directory for the command. |
+| `check` | dep, bootstrap | Shell command — exit 0 means "already done, skip". |
+| `start`/`stop` | dep | String or list of strategies tried in order. |
+| `prompt` | bootstrap | Interactive multi-line prompt. Input available as `$DECK_INPUT` and `$DECK_INPUT_FILE`. |
+| `color` | service | Log prefix color (cyan, magenta, yellow, green, blue, red). Auto-assigned if omitted. |
+| `timestamp` | service | Inject timestamps into log lines (default true, auto-detects existing timestamps). |
+| `port` | service | For status display only. |
 
 ### Local overrides
 
@@ -89,7 +126,7 @@ deps:
       - brew services start postgresql@16
 ```
 
-Maps merge by key, lists replace entirely.
+Maps merge by key (preserving order), lists replace entirely.
 
 ### Custom config file
 
@@ -100,11 +137,11 @@ deck up -f staging.yaml  # no local merge
 ## How It Works
 
 1. **Deps** — checks each dependency, tries start strategies in order until check passes
-2. **Bootstrap** — runs setup steps if their check fails (idempotent)
-3. **Hooks** — pre-start hooks run before services launch
+2. **Bootstrap** — runs setup steps if their check fails (idempotent), supports interactive prompts
+3. **Hooks** — pre-start hooks run before services, post-stop hooks run on shutdown
 4. **Services** — started as child processes, managed via PID files
-5. **Logs** — tailed with colored `[name]` prefixes, timestamps auto-detected
-6. **Shutdown** — SIGTERM → 5s grace → SIGKILL, process group kill for child cleanup
+5. **Logs** — tailed with colored `[name]` prefixes, ANSI codes stripped, timestamps auto-detected
+6. **Shutdown** — post-stop hooks → SIGTERM → 5s grace → SIGKILL, process group kill for child cleanup. Second ctrl+c force-exits.
 
 ## License
 
