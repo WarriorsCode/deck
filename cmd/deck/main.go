@@ -178,9 +178,10 @@ func statusCmd() *cobra.Command {
 
 			statuses := eng.Status()
 
+			baseEnv, _ := engine.BuildEnv(cfg.Env, "", nil)
 			cfg.Deps.Each(func(name string, dep config.Dep) {
 				s := "stopped"
-				if engine.CheckShell(context.Background(), ".", dep.Check) {
+				if engine.CheckShell(context.Background(), ".", dep.Check, baseEnv) {
 					s = "running"
 				}
 				statuses = append(statuses, engine.ServiceStatus{Name: name, Status: s, Type: "dep"})

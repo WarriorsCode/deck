@@ -16,7 +16,7 @@ func TestBootstrapSkipsIfCheckPasses(t *testing.T) {
 	steps := []config.BootstrapStep{
 		{Name: "Skip me", Check: "true", Run: "touch " + marker},
 	}
-	err := RunBootstrap(context.Background(), ".", steps)
+	err := RunBootstrap(context.Background(), ".", steps, nil)
 	require.NoError(t, err)
 	_, err = os.Stat(marker)
 	require.True(t, os.IsNotExist(err))
@@ -27,7 +27,7 @@ func TestBootstrapRunsIfCheckFails(t *testing.T) {
 	steps := []config.BootstrapStep{
 		{Name: "Create file", Check: "test -f " + marker, Run: "touch " + marker},
 	}
-	err := RunBootstrap(context.Background(), ".", steps)
+	err := RunBootstrap(context.Background(), ".", steps, nil)
 	require.NoError(t, err)
 	_, err = os.Stat(marker)
 	require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestBootstrapFailFast(t *testing.T) {
 		{Name: "Fail", Check: "false", Run: "false"},
 		{Name: "Never runs", Check: "false", Run: "touch " + marker},
 	}
-	err := RunBootstrap(context.Background(), ".", steps)
+	err := RunBootstrap(context.Background(), ".", steps, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Fail")
 	_, err = os.Stat(marker)

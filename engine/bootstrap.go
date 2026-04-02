@@ -8,12 +8,12 @@ import (
 )
 
 // RunBootstrap runs each bootstrap step in order. Skips if check passes. Fails fast on error.
-func RunBootstrap(ctx context.Context, dir string, steps []config.BootstrapStep) error {
+func RunBootstrap(ctx context.Context, dir string, steps []config.BootstrapStep, env []string) error {
 	for _, step := range steps {
-		if CheckShell(ctx, dir, step.Check) {
+		if CheckShell(ctx, dir, step.Check, env) {
 			continue
 		}
-		if err := RunShell(ctx, dir, step.Run); err != nil {
+		if err := RunShell(ctx, dir, step.Run, env); err != nil {
 			return fmt.Errorf("bootstrap %q: %w", step.Name, err)
 		}
 	}

@@ -17,7 +17,7 @@ func TestStartAndStopService(t *testing.T) {
 	svc := config.Service{Run: "sleep 60"}
 	pm := NewProcessManager(deckDir)
 
-	err := pm.Start("testsvc", svc)
+	err := pm.Start("testsvc", svc, nil)
 	require.NoError(t, err)
 
 	pidFile := filepath.Join(deckDir, "pids", "testsvc.pid")
@@ -40,7 +40,7 @@ func TestStopAlreadyDead(t *testing.T) {
 	svc := config.Service{Run: "true"}
 	pm := NewProcessManager(deckDir)
 
-	err := pm.Start("shortsvc", svc)
+	err := pm.Start("shortsvc", svc, nil)
 	require.NoError(t, err)
 
 	time.Sleep(500 * time.Millisecond)
@@ -80,9 +80,9 @@ func TestStopAll(t *testing.T) {
 	deckDir := filepath.Join(t.TempDir(), ".deck")
 	pm := NewProcessManager(deckDir)
 
-	err := pm.Start("svc1", config.Service{Run: "sleep 60"})
+	err := pm.Start("svc1", config.Service{Run: "sleep 60"}, nil)
 	require.NoError(t, err)
-	err = pm.Start("svc2", config.Service{Run: "sleep 60"})
+	err = pm.Start("svc2", config.Service{Run: "sleep 60"}, nil)
 	require.NoError(t, err)
 
 	pm.StopAll()

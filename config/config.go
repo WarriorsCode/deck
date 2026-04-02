@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	Name      string          `yaml:"name"`
-	Bootstrap []BootstrapStep `yaml:"bootstrap"`
-	Deps      Map[Dep]        `yaml:"deps"`
-	Hooks     Hooks           `yaml:"hooks"`
-	Services  Map[Service]    `yaml:"services"`
+	Name      string            `yaml:"name"`
+	Env       map[string]string `yaml:"env"`
+	Bootstrap []BootstrapStep   `yaml:"bootstrap"`
+	Deps      Map[Dep]          `yaml:"deps"`
+	Hooks     Hooks             `yaml:"hooks"`
+	Services  Map[Service]      `yaml:"services"`
 }
 
 type BootstrapStep struct {
@@ -34,16 +35,19 @@ type Hooks struct {
 }
 
 type Hook struct {
-	Name string `yaml:"name"`
-	Run  string `yaml:"run"`
+	Name    string `yaml:"name"`
+	Run     string `yaml:"run"`
+	EnvFile string `yaml:"env_file"`
 }
 
 type Service struct {
-	Dir       string `yaml:"dir"`
-	Run       string `yaml:"run"`
-	Port      int    `yaml:"port"`
-	Color     string `yaml:"color"`
-	Timestamp *bool  `yaml:"timestamp"`
+	Dir       string            `yaml:"dir"`
+	Run       string            `yaml:"run"`
+	Port      int               `yaml:"port"`
+	Color     string            `yaml:"color"`
+	Timestamp *bool             `yaml:"timestamp"`
+	Env       map[string]string `yaml:"env"`
+	EnvFile   string            `yaml:"env_file"`
 }
 
 func (s Service) TimestampEnabled() bool {

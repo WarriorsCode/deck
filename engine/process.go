@@ -36,7 +36,7 @@ func NewProcessManager(deckDir string) *ProcessManager {
 	return &ProcessManager{deckDir: deckDir, pidDir: pidDir, logDir: logDir}
 }
 
-func (pm *ProcessManager) Start(name string, svc config.Service) error {
+func (pm *ProcessManager) Start(name string, svc config.Service, env []string) error {
 	logFile, err := os.OpenFile(filepath.Join(pm.logDir, name+".log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("opening log file for %s: %w", name, err)
@@ -51,6 +51,7 @@ func (pm *ProcessManager) Start(name string, svc config.Service) error {
 
 	cmd := exec.Command("sh", "-c", svc.Run)
 	cmd.Dir = dir
+	cmd.Env = env
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

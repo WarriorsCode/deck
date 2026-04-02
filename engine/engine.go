@@ -29,13 +29,17 @@ func (e *Engine) Preflight(ctx context.Context) error {
 	}
 	e.pm.CleanStale()
 
-	if err := EnsureDeps(ctx, e.dir, e.cfg.Deps); err != nil {
+	baseEnv, err := BuildEnv(e.cfg.Env, "", nil)
+	if err != nil {
 		return err
 	}
-	if err := RunBootstrap(ctx, e.dir, e.cfg.Bootstrap); err != nil {
+	if err := EnsureDeps(ctx, e.dir, e.cfg.Deps, baseEnv); err != nil {
 		return err
 	}
-	return RunHooks(ctx, e.dir, e.cfg.Hooks.PreStart, false)
+	if err := RunBootstrap(ctx, e.dir, e.cfg.Bootstrap, baseEnv); err != nil {
+		return err
+	}
+	return RunHooks(ctx, e.dir, e.cfg.Hooks.PreStart, false, e.cfg.Env)
 }
 
 // Start launches all services in config-defined order.
@@ -43,7 +47,11 @@ func (e *Engine) Preflight(ctx context.Context) error {
 func (e *Engine) Start() error {
 	var started []string
 	err := e.cfg.Services.EachErr(func(name string, svc config.Service) error {
-		if err := e.pm.Start(name, svc); err != nil {
+		env, err := BuildEnv(e.cfg.Env, svc.EnvFile, svc.Env)
+		if err != nil {
+			return fmt.Errorf("service %q: %w", name, err)
+		}
+		if err := e.pm.Start(name, svc, env); err != nil {
 			return err
 		}
 		started = append(started, name)
@@ -61,7 +69,7 @@ func (e *Engine) Start() error {
 // Shutdown runs post-stop hooks first, then kills services (deck up ordering per spec).
 // Hooks are bounded by ctx to prevent wedging on a hung hook.
 func (e *Engine) Shutdown(ctx context.Context) {
-	RunHooks(ctx, e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
+	RunHooks(ctx, e.dir, e.cfg.Hooks.PostStop, true, e.cfg.Env) //nolint:errcheck
 	e.pm.StopAll()
 }
 
@@ -70,7 +78,7 @@ func (e *Engine) Stop() {
 	e.pm.StopAll()
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
-	RunHooks(ctx, e.dir, e.cfg.Hooks.PostStop, true) //nolint:errcheck
+	RunHooks(ctx, e.dir, e.cfg.Hooks.PostStop, true, e.cfg.Env) //nolint:errcheck
 }
 
 // Status returns status of all configured services, merging live PID data.
