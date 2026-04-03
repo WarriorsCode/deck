@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -23,9 +24,10 @@ type ServiceStatus struct {
 }
 
 type ProcessManager struct {
-	deckDir string
-	pidDir  string
-	logDir  string
+	deckDir   string
+	pidDir    string
+	logDir    string
+	exitCodes sync.Map // name -> int
 }
 
 func NewProcessManager(deckDir string) *ProcessManager {
@@ -67,7 +69,18 @@ func (pm *ProcessManager) Start(name string, svc config.Service, env []string) e
 		return fmt.Errorf("writing PID file for %s: %w", name, err)
 	}
 
-	go cmd.Wait() //nolint:errcheck
+	go func() {
+		err := cmd.Wait()
+		code := 0
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				code = exitErr.ExitCode()
+			} else {
+				code = 1
+			}
+		}
+		pm.exitCodes.Store(name, code)
+	}()
 
 	return nil
 }
@@ -188,6 +201,30 @@ func (pm *ProcessManager) CleanStale() {
 	for _, name := range stale {
 		os.Remove(filepath.Join(pm.pidDir, name+".pid"))
 	}
+}
+
+func (pm *ProcessManager) hasPidFile(name string) bool {
+	_, err := os.Stat(filepath.Join(pm.pidDir, name+".pid"))
+	return err == nil
+}
+
+func (pm *ProcessManager) isRunning(name string) bool {
+	data, err := os.ReadFile(filepath.Join(pm.pidDir, name+".pid"))
+	if err != nil {
+		return false
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return false
+	}
+	return processAlive(pid)
+}
+
+func (pm *ProcessManager) lastExitCode(name string) int {
+	if v, ok := pm.exitCodes.Load(name); ok {
+		return v.(int)
+	}
+	return -1
 }
 
 func processAlive(pid int) bool {

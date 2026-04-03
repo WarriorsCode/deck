@@ -75,6 +75,7 @@ type Service struct {
 	EnvFile   string   `yaml:"env_file"`
 	DependsOn []string `yaml:"depends_on"`
 	Ready     string   `yaml:"ready"`
+	Restart   string   `yaml:"restart"` // "always", "on-failure", or "" (no restart)
 }
 
 func (s Service) TimestampEnabled() bool {

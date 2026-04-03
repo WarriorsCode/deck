@@ -109,6 +109,7 @@ func upCmd() *cobra.Command {
 				cancel()
 			}()
 
+			go eng.Watch(ctx)
 			engine.TailLogs(ctx, eng.LogConfigs(filter), os.Stdout)
 			return nil
 		},

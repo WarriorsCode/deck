@@ -126,6 +126,7 @@ services:
 | `timestamp` | service | Inject timestamps into log lines (default true, auto-detects existing timestamps). |
 | `depends_on` | service | List of services that must start (and be ready) first. |
 | `ready` | service | Shell command polled after start — exit 0 means ready. Blocks dependents until passing. |
+| `restart` | service | Restart policy: `always`, `on-failure`, or omit for no restart. Active during `deck up`. |
 | `port` | service | For status display only. |
 
 ### Local overrides
