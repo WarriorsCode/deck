@@ -42,20 +42,26 @@ func (e *Engine) Preflight(ctx context.Context) error {
 	return RunHooks(ctx, e.dir, e.cfg.Hooks.PreStart, false, e.cfg.Env)
 }
 
+// ServiceEnv builds the resolved environment for a service.
+func (e *Engine) ServiceEnv(svc config.Service) ([]string, error) {
+	baseEnv, err := BuildEnv(e.cfg.Env, svc.EnvFile, nil)
+	if err != nil {
+		return nil, err
+	}
+	svcDir := stepDir(e.dir, svc.Dir)
+	resolved := ResolveEnv(context.Background(), svcDir, svc.Env, baseEnv)
+	return MergeSlice(baseEnv, resolved), nil
+}
+
 // Start launches all services in config-defined order.
 // On failure, already-started services are rolled back.
 func (e *Engine) Start() error {
 	var started []string
 	err := e.cfg.Services.EachErr(func(name string, svc config.Service) error {
-		baseEnv, err := BuildEnv(e.cfg.Env, svc.EnvFile, nil)
+		env, err := e.ServiceEnv(svc)
 		if err != nil {
 			return fmt.Errorf("service %q: %w", name, err)
 		}
-		svcDir := stepDir(e.dir, svc.Dir)
-		// context.Background: env resolution is a one-shot operation before process
-		// spawn — no meaningful cancellation point like bootstrap/hooks have.
-		resolved := ResolveEnv(context.Background(), svcDir, svc.Env, baseEnv)
-		env := MergeSlice(baseEnv, resolved)
 		if err := e.pm.Start(name, svc, env); err != nil {
 			return err
 		}

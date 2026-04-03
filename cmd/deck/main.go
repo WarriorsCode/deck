@@ -36,6 +36,7 @@ func main() {
 		restartCmd(),
 		statusCmd(),
 		logsCmd(),
+		runCmd(),
 		initCmd(),
 	)
 
@@ -224,6 +225,35 @@ func logsCmd() *cobra.Command {
 
 			engine.TailLogs(ctx, eng.LogConfigs(), os.Stdout)
 			return nil
+		},
+	}
+}
+
+func runCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "run <service> -- <command...>",
+		Short: "Run a one-off command in a service's environment",
+		Args:  cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			svc, ok := cfg.Services.Get(args[0])
+			if !ok {
+				return fmt.Errorf("unknown service %q", args[0])
+			}
+			eng := newEngine(cfg)
+			env, err := eng.ServiceEnv(svc)
+			if err != nil {
+				return err
+			}
+			dir, _ := os.Getwd()
+			svcDir := dir
+			if svc.Dir != "" {
+				svcDir = svc.Dir
+			}
+			return engine.RunShell(cmd.Context(), svcDir, strings.Join(args[1:], " "), env)
 		},
 	}
 }

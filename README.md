@@ -36,6 +36,7 @@ deck up          # starts everything, ctrl+c to stop
 | `deck restart` | Stop + start |
 | `deck status` | Show service status (supports `--format json` and Go templates) |
 | `deck logs` | Tail logs with colored prefixes (shows last 20 lines of backlog) |
+| `deck run <service> -- <cmd>` | Run a one-off command in a service's environment (dir, env, env_file) |
 | `deck init` | Create deck.yaml scaffold and update .gitignore |
 | `deck --version` | Print version |
 
