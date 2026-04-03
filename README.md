@@ -113,7 +113,7 @@ services:
 | Field | Where | Description |
 |-------|-------|-------------|
 | `env` | top-level, service, bootstrap, hook | Key-value env vars. Step-level merges on top of global. Supports `$(…)` shell interpolation. |
-| `env_file` | service, hook | Path to a dotenv file loaded before running. |
+| `env_file` | service, hook, bootstrap | Path to a dotenv file loaded before running. |
 | `dir` | service, bootstrap, hook | Working directory for the command. |
 | `check` | dep, bootstrap | Shell command — exit 0 means "already done, skip". |
 | `start`/`stop` | dep | String or list of strategies tried in order. |

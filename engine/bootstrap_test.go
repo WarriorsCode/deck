@@ -144,6 +144,40 @@ func TestBootstrapStepEnvNotVisibleToNextStep(t *testing.T) {
 	assert.Contains(t, string(data), "[]")
 }
 
+func TestBootstrapWithEnvFile(t *testing.T) {
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, "test.env")
+	marker := filepath.Join(dir, "result")
+	require.NoError(t, os.WriteFile(envFile, []byte("BOOT_VAR=fromfile\n"), 0644))
+
+	steps := []config.BootstrapStep{
+		{Name: "Env file", Check: "false", Run: "echo $BOOT_VAR > " + marker, EnvFile: envFile},
+	}
+	err := RunBootstrap(context.Background(), ".", steps, nil)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "fromfile")
+}
+
+func TestBootstrapEnvFileOverriddenByStepEnv(t *testing.T) {
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, "test.env")
+	marker := filepath.Join(dir, "result")
+	require.NoError(t, os.WriteFile(envFile, []byte("MY_VAR=file\n"), 0644))
+
+	steps := []config.BootstrapStep{
+		{Name: "Override", Check: "false", Run: "echo $MY_VAR > " + marker, EnvFile: envFile, Env: map[string]string{"MY_VAR": "step"}},
+	}
+	err := RunBootstrap(context.Background(), ".", steps, nil)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "step")
+}
+
 func TestBootstrapPromptSkipsInNonTTY(t *testing.T) {
 	steps := []config.BootstrapStep{
 		{Name: "Needs input", Check: "false", Prompt: "Paste key:", Run: "true"},

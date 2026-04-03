@@ -36,12 +36,13 @@ type Config struct {
 }
 
 type BootstrapStep struct {
-	Name   string `yaml:"name"`
-	Dir    string `yaml:"dir"`
-	Check  string `yaml:"check"`
-	Run    string `yaml:"run"`
-	Prompt string `yaml:"prompt"`
-	Env    Env    `yaml:"env"`
+	Name    string `yaml:"name"`
+	Dir     string `yaml:"dir"`
+	Check   string `yaml:"check"`
+	Run     string `yaml:"run"`
+	Prompt  string `yaml:"prompt"`
+	Env     Env    `yaml:"env"`
+	EnvFile string `yaml:"env_file"`
 }
 
 type Dep struct {
