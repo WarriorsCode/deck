@@ -39,20 +39,20 @@ func TestEngineStartStop(t *testing.T) {
 	err := eng.Preflight(context.Background())
 	require.NoError(t, err)
 
-	err = eng.Start()
+	err = eng.Start(nil)
 	require.NoError(t, err)
 
 	_, err = os.Stat(marker)
 	require.NoError(t, err)
 
-	statuses := eng.Status()
+	statuses := eng.Status(nil)
 	require.Len(t, statuses, 1)
 	assert.Equal(t, "running", statuses[0].Status)
 
 	eng.Stop()
 
 	time.Sleep(200 * time.Millisecond)
-	statuses = eng.Status()
+	statuses = eng.Status(nil)
 	require.Len(t, statuses, 1)
 	assert.Equal(t, "stopped", statuses[0].Status)
 }
@@ -70,7 +70,7 @@ func TestEngineStartRollback(t *testing.T) {
 	}
 
 	eng := New(cfg, dir, deckDir)
-	err := eng.Start()
+	err := eng.Start(nil)
 	require.Error(t, err)
 
 	// "good" should have been rolled back — no PID files left
@@ -94,7 +94,7 @@ func TestShutdownTimesOutHungHook(t *testing.T) {
 	}
 
 	eng := New(cfg, dir, deckDir)
-	require.NoError(t, eng.Start())
+	require.NoError(t, eng.Start(nil))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -106,7 +106,7 @@ func TestShutdownTimesOutHungHook(t *testing.T) {
 	// Should complete in ~1s (context timeout), not 60s (hook sleep).
 	assert.Less(t, elapsed, 5*time.Second)
 	// Service should still be cleaned up despite hung hook.
-	statuses := eng.Status()
+	statuses := eng.Status(nil)
 	for _, s := range statuses {
 		assert.Equal(t, "stopped", s.Status)
 	}
@@ -128,14 +128,14 @@ func TestShutdownRunsPostStopBeforeKill(t *testing.T) {
 	}
 
 	eng := New(cfg, dir, deckDir)
-	require.NoError(t, eng.Start())
+	require.NoError(t, eng.Start(nil))
 
 	eng.Shutdown(context.Background())
 
 	_, err := os.Stat(hookMarker)
 	require.NoError(t, err, "post-stop hook should have run")
 
-	statuses := eng.Status()
+	statuses := eng.Status(nil)
 	for _, s := range statuses {
 		assert.Equal(t, "stopped", s.Status)
 	}

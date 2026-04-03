@@ -64,11 +64,14 @@ func newEngine(cfg *config.Config) *engine.Engine {
 
 func upCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "up",
+		Use:   "up [services...]",
 		Short: "Start services in foreground with log tailing",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
+				return err
+			}
+			if err := cfg.ValidateServiceNames(args); err != nil {
 				return err
 			}
 			eng := newEngine(cfg)
@@ -79,7 +82,7 @@ func upCmd() *cobra.Command {
 			if err := eng.Preflight(ctx); err != nil {
 				return err
 			}
-			if err := eng.Start(); err != nil {
+			if err := eng.Start(args); err != nil {
 				return err
 			}
 
@@ -94,11 +97,15 @@ func upCmd() *cobra.Command {
 					<-sigCh
 					os.Exit(1)
 				}()
-				eng.Shutdown(shutCtx)
+				if len(args) > 0 {
+					eng.StopServices(args)
+				} else {
+					eng.Shutdown(shutCtx)
+				}
 				cancel()
 			}()
 
-			engine.TailLogs(ctx, eng.LogConfigs(), os.Stdout)
+			engine.TailLogs(ctx, eng.LogConfigs(args), os.Stdout)
 			return nil
 		},
 	}
@@ -106,11 +113,14 @@ func upCmd() *cobra.Command {
 
 func startCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "start",
+		Use:   "start [services...]",
 		Short: "Start services in background (detached)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
+				return err
+			}
+			if err := cfg.ValidateServiceNames(args); err != nil {
 				return err
 			}
 			eng := newEngine(cfg)
@@ -118,11 +128,11 @@ func startCmd() *cobra.Command {
 			if err := eng.Preflight(context.Background()); err != nil {
 				return err
 			}
-			if err := eng.Start(); err != nil {
+			if err := eng.Start(args); err != nil {
 				return err
 			}
 
-			statuses := eng.Status()
+			statuses := eng.Status(args)
 			out, _ := status.Format(statuses, "")
 			fmt.Println(out)
 			return nil
@@ -132,16 +142,24 @@ func startCmd() *cobra.Command {
 
 func stopCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "stop",
-		Short: "Stop all running services",
+		Use:   "stop [services...]",
+		Short: "Stop running services",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
 			}
+			if err := cfg.ValidateServiceNames(args); err != nil {
+				return err
+			}
 			eng := newEngine(cfg)
-			eng.Stop()
-			fmt.Println("All services stopped.")
+			if len(args) > 0 {
+				eng.StopServices(args)
+				fmt.Printf("Stopped: %s\n", strings.Join(args, ", "))
+			} else {
+				eng.Stop()
+				fmt.Println("All services stopped.")
+			}
 			return nil
 		},
 	}
@@ -149,20 +167,27 @@ func stopCmd() *cobra.Command {
 
 func restartCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "restart",
-		Short: "Restart all services",
+		Use:   "restart [services...]",
+		Short: "Restart services",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
 			}
+			if err := cfg.ValidateServiceNames(args); err != nil {
+				return err
+			}
 			eng := newEngine(cfg)
-			eng.Stop()
+			if len(args) > 0 {
+				eng.StopServices(args)
+			} else {
+				eng.Stop()
+			}
 
 			if err := eng.Preflight(context.Background()); err != nil {
 				return err
 			}
-			return eng.Start()
+			return eng.Start(args)
 		},
 	}
 }
@@ -170,25 +195,30 @@ func restartCmd() *cobra.Command {
 func statusCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
-		Use:   "status",
+		Use:   "status [services...]",
 		Short: "Show status of services",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
 			}
+			if err := cfg.ValidateServiceNames(args); err != nil {
+				return err
+			}
 			eng := newEngine(cfg)
 
-			statuses := eng.Status()
+			statuses := eng.Status(args)
 
-			baseEnv, _ := engine.BuildEnv(cfg.Env, "", nil)
-			cfg.Deps.Each(func(name string, dep config.Dep) {
-				s := "stopped"
-				if engine.CheckShell(context.Background(), ".", dep.Check, baseEnv) {
-					s = "running"
-				}
-				statuses = append(statuses, engine.ServiceStatus{Name: name, Status: s, Type: "dep"})
-			})
+			if len(args) == 0 {
+				baseEnv, _ := engine.BuildEnv(cfg.Env, "", nil)
+				cfg.Deps.Each(func(name string, dep config.Dep) {
+					s := "stopped"
+					if engine.CheckShell(context.Background(), ".", dep.Check, baseEnv) {
+						s = "running"
+					}
+					statuses = append(statuses, engine.ServiceStatus{Name: name, Status: s, Type: "dep"})
+				})
+			}
 
 			out, err := status.Format(statuses, format)
 			if err != nil {
@@ -204,11 +234,14 @@ func statusCmd() *cobra.Command {
 
 func logsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "logs",
+		Use:   "logs [services...]",
 		Short: "Tail service logs with colored prefixes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
+				return err
+			}
+			if err := cfg.ValidateServiceNames(args); err != nil {
 				return err
 			}
 			eng := newEngine(cfg)
@@ -223,7 +256,7 @@ func logsCmd() *cobra.Command {
 				cancel()
 			}()
 
-			engine.TailLogs(ctx, eng.LogConfigs(), os.Stdout)
+			engine.TailLogs(ctx, eng.LogConfigs(args), os.Stdout)
 			return nil
 		},
 	}

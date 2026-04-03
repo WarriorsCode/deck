@@ -30,12 +30,12 @@ deck up          # starts everything, ctrl+c to stop
 
 | Command | Description |
 |---------|-------------|
-| `deck up` | Foreground: preflight, start services, tail logs, ctrl+c to stop |
-| `deck start` | Detached: preflight, start services, return to shell |
-| `deck stop` | Stop all services |
-| `deck restart` | Stop + start |
-| `deck status` | Show service status (supports `--format json` and Go templates) |
-| `deck logs` | Tail logs with colored prefixes (shows last 20 lines of backlog) |
+| `deck up [services...]` | Foreground: preflight, start services, tail logs, ctrl+c to stop |
+| `deck start [services...]` | Detached: preflight, start services, return to shell |
+| `deck stop [services...]` | Stop services (all if none specified) |
+| `deck restart [services...]` | Stop + start |
+| `deck status [services...]` | Show service status (supports `--format json` and Go templates) |
+| `deck logs [services...]` | Tail logs with colored prefixes (shows last 20 lines of backlog) |
 | `deck run <service> -- <cmd>` | Run a one-off command in a service's environment (dir, env, env_file) |
 | `deck init` | Create deck.yaml scaffold and update .gitignore |
 | `deck --version` | Print version |

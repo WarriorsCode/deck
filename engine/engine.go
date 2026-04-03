@@ -11,6 +11,17 @@ import (
 
 const shutdownTimeout = 30 * time.Second
 
+func toSet(names []string) map[string]bool {
+	if len(names) == 0 {
+		return nil
+	}
+	s := make(map[string]bool, len(names))
+	for _, n := range names {
+		s[n] = true
+	}
+	return s
+}
+
 type Engine struct {
 	cfg *config.Config
 	dir string
@@ -53,11 +64,16 @@ func (e *Engine) ServiceEnv(svc config.Service) ([]string, error) {
 	return MergeSlice(baseEnv, resolved), nil
 }
 
-// Start launches all services in config-defined order.
+// Start launches services in config-defined order.
+// If filter is non-empty, only matching services are started.
 // On failure, already-started services are rolled back.
-func (e *Engine) Start() error {
+func (e *Engine) Start(filter []string) error {
+	allowed := toSet(filter)
 	var started []string
 	err := e.cfg.Services.EachErr(func(name string, svc config.Service) error {
+		if len(allowed) > 0 && !allowed[name] {
+			return nil
+		}
 		env, err := e.ServiceEnv(svc)
 		if err != nil {
 			return fmt.Errorf("service %q: %w", name, err)
@@ -92,8 +108,17 @@ func (e *Engine) Stop() {
 	RunHooks(ctx, e.dir, e.cfg.Hooks.PostStop, true, e.cfg.Env) //nolint:errcheck
 }
 
-// Status returns status of all configured services, merging live PID data.
-func (e *Engine) Status() []ServiceStatus {
+// StopServices stops only the named services. No hooks are run.
+func (e *Engine) StopServices(names []string) {
+	for _, name := range names {
+		e.pm.Stop(name) //nolint:errcheck
+	}
+}
+
+// Status returns status of configured services, merging live PID data.
+// If filter is non-empty, only matching services are returned.
+func (e *Engine) Status(filter []string) []ServiceStatus {
+	allowed := toSet(filter)
 	live := e.pm.Status()
 	liveByName := make(map[string]ServiceStatus, len(live))
 	for _, s := range live {
@@ -102,6 +127,9 @@ func (e *Engine) Status() []ServiceStatus {
 
 	var statuses []ServiceStatus
 	e.cfg.Services.Each(func(name string, svc config.Service) {
+		if len(allowed) > 0 && !allowed[name] {
+			return
+		}
 		s := ServiceStatus{
 			Name:    name,
 			Port:    svc.Port,
@@ -118,8 +146,10 @@ func (e *Engine) Status() []ServiceStatus {
 	return statuses
 }
 
-// LogConfigs returns log configurations for all services in config-defined order.
-func (e *Engine) LogConfigs() map[string]LogConfig {
+// LogConfigs returns log configurations for services in config-defined order.
+// If filter is non-empty, only matching services are returned.
+func (e *Engine) LogConfigs(filter []string) map[string]LogConfig {
+	allowed := toSet(filter)
 	configs := make(map[string]LogConfig, e.cfg.Services.Len())
 	i := 0
 	e.cfg.Services.Each(func(name string, svc config.Service) {
@@ -127,10 +157,12 @@ func (e *Engine) LogConfigs() map[string]LogConfig {
 		if color == "" && i < len(defaultPalette) {
 			color = defaultPalette[i]
 		}
-		configs[name] = LogConfig{
-			Path:      filepath.Join(e.pm.logDir, name+".log"),
-			Color:     color,
-			Timestamp: svc.TimestampEnabled(),
+		if len(allowed) == 0 || allowed[name] {
+			configs[name] = LogConfig{
+				Path:      filepath.Join(e.pm.logDir, name+".log"),
+				Color:     color,
+				Timestamp: svc.TimestampEnabled(),
+			}
 		}
 		i++
 	})

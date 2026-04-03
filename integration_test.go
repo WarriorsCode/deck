@@ -52,10 +52,10 @@ services:
 	_, err = os.Stat(hookMarker)
 	require.NoError(t, err)
 
-	err = eng.Start()
+	err = eng.Start(nil)
 	require.NoError(t, err)
 
-	statuses := eng.Status()
+	statuses := eng.Status(nil)
 	require.Len(t, statuses, 1)
 	assert.Equal(t, "running", statuses[0].Status)
 

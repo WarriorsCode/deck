@@ -150,6 +150,16 @@ func validateHookKeys(data []byte) error {
 	return nil
 }
 
+// ValidateServiceNames checks that all names exist in the config.
+func (c *Config) ValidateServiceNames(names []string) error {
+	for _, name := range names {
+		if _, ok := c.Services.Get(name); !ok {
+			return fmt.Errorf("unknown service %q", name)
+		}
+	}
+	return nil
+}
+
 func validate(cfg *Config) error {
 	if cfg.Services.Len() == 0 {
 		return fmt.Errorf("config: at least one service must be defined")
