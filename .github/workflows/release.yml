@@ -30,3 +30,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+  sync-docs:
+    runs-on: ubuntu-latest
+    needs: goreleaser
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Sync CHANGELOG into docs site
+        run: |
+          head="---
+          title: Changelog
+          layout: default
+          nav_order: 4
+          ---"
+          # dedent the heredoc
+          head=$(echo "$head" | sed 's/^          //')
+          echo "$head" > docs/changelog.md
+          echo "" >> docs/changelog.md
+          cat CHANGELOG.md >> docs/changelog.md
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/changelog.md
+          git diff --cached --quiet && exit 0
+          git commit -m "docs: sync changelog from release ${{ github.ref_name }}"
+          git push
