@@ -51,6 +51,19 @@ func TestHooksBestEffort(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestHooksWithStepEnv(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "result")
+	hooks := []config.Hook{
+		{Name: "Env hook", Run: "echo $HOOK_VAL > " + marker, Env: map[string]string{"HOOK_VAL": "$(echo interpolated)"}},
+	}
+	err := RunHooks(context.Background(), ".", hooks, false, nil)
+	require.NoError(t, err)
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "interpolated")
+}
+
 func TestHooksWithEnvFile(t *testing.T) {
 	dir := t.TempDir()
 	envFile := filepath.Join(dir, "test.env")

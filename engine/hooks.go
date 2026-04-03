@@ -11,7 +11,7 @@ import (
 // If bestEffort is true, errors are logged but execution continues.
 // If bestEffort is false, first error stops execution.
 // globalEnv is the base env; each hook's EnvFile is layered on top.
-func RunHooks(ctx context.Context, dir string, hooks []config.Hook, bestEffort bool, globalEnv map[string]string) error {
+func RunHooks(ctx context.Context, dir string, hooks []config.Hook, bestEffort bool, globalEnv config.Env) error {
 	for _, hook := range hooks {
 		env, err := BuildEnv(globalEnv, hook.EnvFile, nil)
 		if err != nil {
@@ -20,9 +20,9 @@ func RunHooks(ctx context.Context, dir string, hooks []config.Hook, bestEffort b
 			}
 			return fmt.Errorf("hook %q: %w", hook.Name, err)
 		}
-		resolved := ResolveEnv(hook.Env, env)
-		env = MergeSlice(env, resolved)
 		d := stepDir(dir, hook.Dir)
+		resolved := ResolveEnv(ctx, d, hook.Env, env)
+		env = MergeSlice(env, resolved)
 		if err := RunShell(ctx, d, hook.Run, env); err != nil {
 			if bestEffort {
 				continue

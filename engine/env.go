@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -51,9 +52,11 @@ func MergeSlice(base []string, overlay config.Env) []string {
 }
 
 // ResolveEnv evaluates an env map, interpolating $(…) shell expressions.
-// Values without $(…) are used as-is. If a shell command fails, the value is set
+// Values containing $(…) are passed through `sh -c 'printf "%s" <value>'` to let
+// the shell handle all substitution (including nesting and quoting).
+// Literal values (no $(…)) are used as-is. If a command fails, the value is set
 // to empty string and a warning is logged.
-func ResolveEnv(raw config.Env, baseEnv []string) config.Env {
+func ResolveEnv(ctx context.Context, dir string, raw config.Env, baseEnv []string) config.Env {
 	if len(raw) == 0 {
 		return nil
 	}
@@ -63,7 +66,8 @@ func ResolveEnv(raw config.Env, baseEnv []string) config.Env {
 			resolved[k] = v
 			continue
 		}
-		cmd := exec.Command("sh", "-c", "printf '%s' "+v)
+		cmd := exec.CommandContext(ctx, "sh", "-c", `printf '%s' `+v)
+		cmd.Dir = dir
 		cmd.Env = baseEnv
 		out, err := cmd.Output()
 		if err != nil {

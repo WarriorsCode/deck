@@ -18,7 +18,7 @@ import (
 func RunBootstrap(ctx context.Context, dir string, steps []config.BootstrapStep, env []string) error {
 	for _, step := range steps {
 		d := stepDir(dir, step.Dir)
-		resolved := ResolveEnv(step.Env, env)
+		resolved := ResolveEnv(ctx, d, step.Env, env)
 		stepEnv := MergeSlice(env, resolved)
 		if CheckShell(ctx, d, step.Check, stepEnv) {
 			continue

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.5.0](https://github.com/WarriorsCode/deck/releases/tag/v0.5.0) — 2026-04-03
+
+### Added
+- Per-step `env` field on bootstrap steps, hooks, and services with `$(…)` shell interpolation
+- Env values containing `$(…)` are evaluated at runtime (not config load time) via `sh -c`
+- Step-level `env` merges on top of global `env` — step values win on conflict
+- Shell interpolation runs in the step's working directory for correct relative path resolution
+- Failed `$(…)` commands produce an empty string and log a warning; the step continues normally
+
+### Changed
+- Introduced `config.Env` named type with `Merge` and `ToSlice` methods, replacing raw `map[string]string`
+- Service `env` values now support `$(…)` interpolation (previously only literal values)
+
 ## [v0.4.0](https://github.com/WarriorsCode/deck/releases/tag/v0.4.0) — 2026-04-02
 
 ### Added

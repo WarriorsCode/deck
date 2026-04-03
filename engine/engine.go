@@ -51,7 +51,10 @@ func (e *Engine) Start() error {
 		if err != nil {
 			return fmt.Errorf("service %q: %w", name, err)
 		}
-		resolved := ResolveEnv(svc.Env, baseEnv)
+		svcDir := stepDir(e.dir, svc.Dir)
+		// context.Background: env resolution is a one-shot operation before process
+		// spawn — no meaningful cancellation point like bootstrap/hooks have.
+		resolved := ResolveEnv(context.Background(), svcDir, svc.Env, baseEnv)
 		env := MergeSlice(baseEnv, resolved)
 		if err := e.pm.Start(name, svc, env); err != nil {
 			return err

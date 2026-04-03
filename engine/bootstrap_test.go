@@ -68,6 +68,82 @@ func TestReadMultiLineEmpty(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
+func TestBootstrapStepEnvLiteral(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "result")
+	steps := []config.BootstrapStep{
+		{Name: "Env test", Check: "false", Run: "echo $MY_VAR > " + marker, Env: map[string]string{"MY_VAR": "hello"}},
+	}
+	err := RunBootstrap(context.Background(), ".", steps, nil)
+	require.NoError(t, err)
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "hello")
+}
+
+func TestBootstrapStepEnvInterpolation(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "result")
+	steps := []config.BootstrapStep{
+		{Name: "Interpolate", Check: "false", Run: "echo $GREETING > " + marker, Env: map[string]string{"GREETING": "$(echo world)"}},
+	}
+	err := RunBootstrap(context.Background(), ".", steps, nil)
+	require.NoError(t, err)
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "world")
+}
+
+func TestBootstrapStepEnvAvailableInCheck(t *testing.T) {
+	steps := []config.BootstrapStep{
+		{Name: "Check sees env", Check: "test $MY_FLAG = yes", Run: "false", Env: map[string]string{"MY_FLAG": "yes"}},
+	}
+	// Check should pass thanks to env, so run (which would fail) is never called.
+	err := RunBootstrap(context.Background(), ".", steps, nil)
+	require.NoError(t, err)
+}
+
+func TestBootstrapStepEnvOverridesGlobal(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "result")
+	globalEnv := []string{"MY_VAR=global"}
+	steps := []config.BootstrapStep{
+		{Name: "Override", Check: "false", Run: "echo $MY_VAR > " + marker, Env: map[string]string{"MY_VAR": "step"}},
+	}
+	err := RunBootstrap(context.Background(), ".", steps, globalEnv)
+	require.NoError(t, err)
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "step")
+}
+
+func TestBootstrapStepEnvFailedInterpolation(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "result")
+	steps := []config.BootstrapStep{
+		{Name: "Bad cmd", Check: "false", Run: "echo [$MISSING] > " + marker, Env: map[string]string{"MISSING": "$(cat /nonexistent/xxx)"}},
+	}
+	err := RunBootstrap(context.Background(), ".", steps, nil)
+	require.NoError(t, err)
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "[]")
+}
+
+func TestBootstrapStepEnvNotVisibleToNextStep(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "result")
+	steps := []config.BootstrapStep{
+		{Name: "Step 1", Check: "false", Run: "true", Env: map[string]string{"STEP1_VAR": "secret"}},
+		{Name: "Step 2", Check: "false", Run: "echo [$STEP1_VAR] > " + marker},
+	}
+	err := RunBootstrap(context.Background(), ".", steps, nil)
+	require.NoError(t, err)
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "[]")
+}
+
 func TestBootstrapPromptSkipsInNonTTY(t *testing.T) {
 	steps := []config.BootstrapStep{
 		{Name: "Needs input", Check: "false", Prompt: "Paste key:", Run: "true"},

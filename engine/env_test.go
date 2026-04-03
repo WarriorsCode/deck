@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -88,23 +89,23 @@ func TestBuildEnvNilEverything(t *testing.T) {
 }
 
 func TestResolveEnvLiteral(t *testing.T) {
-	resolved := ResolveEnv(config.Env{"FOO": "bar", "BAZ": "qux"}, nil)
+	resolved := ResolveEnv(context.Background(), ".", config.Env{"FOO": "bar", "BAZ": "qux"}, nil)
 	assert.Equal(t, "bar", resolved["FOO"])
 	assert.Equal(t, "qux", resolved["BAZ"])
 }
 
 func TestResolveEnvInterpolation(t *testing.T) {
-	resolved := ResolveEnv(config.Env{"GREETING": "$(echo hello)"}, nil)
+	resolved := ResolveEnv(context.Background(), ".", config.Env{"GREETING": "$(echo hello)"}, nil)
 	assert.Equal(t, "hello", resolved["GREETING"])
 }
 
 func TestResolveEnvFailedCommand(t *testing.T) {
-	resolved := ResolveEnv(config.Env{"MISSING": "$(cat /nonexistent/file/xxx)"}, nil)
+	resolved := ResolveEnv(context.Background(), ".", config.Env{"MISSING": "$(cat /nonexistent/file/xxx)"}, nil)
 	assert.Equal(t, "", resolved["MISSING"])
 }
 
 func TestResolveEnvNil(t *testing.T) {
-	assert.Nil(t, ResolveEnv(nil, nil))
+	assert.Nil(t, ResolveEnv(context.Background(), ".", nil, nil))
 }
 
 func TestMergeSlice(t *testing.T) {

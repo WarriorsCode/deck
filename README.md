@@ -68,6 +68,13 @@ bootstrap:
     check: test -d node_modules
     run: pnpm install
 
+  - name: Create database
+    env:
+      PG_HOST: "$(sed -n '/^\[db\]/,/^\[/p' api/etc/app.conf | grep host | cut -d= -f2 | tr -d ' ')"
+      PG_USER: "$(sed -n '/^\[db\]/,/^\[/p' api/etc/app.conf | grep user | cut -d= -f2 | tr -d ' ')"
+    check: psql -h $PG_HOST -U $PG_USER -d myapp -c 'SELECT 1' 2>/dev/null
+    run: createdb -h $PG_HOST -U $PG_USER myapp
+
   - name: Set auth key
     check: "! grep -q \"AUTH_KEY=''\" .env"
     prompt: |
@@ -105,7 +112,7 @@ services:
 
 | Field | Where | Description |
 |-------|-------|-------------|
-| `env` | top-level, service | Key-value env vars. Service-level merges on top of global. |
+| `env` | top-level, service, bootstrap, hook | Key-value env vars. Step-level merges on top of global. Supports `$(…)` shell interpolation. |
 | `env_file` | service, hook | Path to a dotenv file loaded before running. |
 | `dir` | service, bootstrap, hook | Working directory for the command. |
 | `check` | dep, bootstrap | Shell command — exit 0 means "already done, skip". |
@@ -137,7 +144,7 @@ deck up -f staging.yaml  # no local merge
 ## How It Works
 
 1. **Deps** — checks each dependency, tries start strategies in order until check passes
-2. **Bootstrap** — runs setup steps if their check fails (idempotent), supports interactive prompts
+2. **Bootstrap** — runs setup steps if their check fails (idempotent), supports interactive prompts and `$(…)` env interpolation
 3. **Hooks** — pre-start hooks run before services, post-stop hooks run on shutdown
 4. **Services** — started as child processes, managed via PID files
 5. **Logs** — tailed with colored `[name]` prefixes, ANSI codes stripped, timestamps auto-detected
