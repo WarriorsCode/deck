@@ -1,7 +1,7 @@
 title: deck
 description: Lightweight local dev orchestrator. One command to bootstrap and run your entire stack.
-url: "https://warriorscode.dev"
-baseurl: "/deck"
+url: "https://deck.warriorscode.dev"
+baseurl: ""
 
 remote_theme: just-the-docs/just-the-docs@v0.10.1
 
