@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -37,6 +38,7 @@ func main() {
 		statusCmd(),
 		logsCmd(),
 		runCmd(),
+		doctorCmd(),
 		initCmd(),
 	)
 
@@ -260,6 +262,53 @@ func logsCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func doctorCmd() *cobra.Command {
+	var jsonOutput bool
+	cmd := &cobra.Command{
+		Use:   "doctor",
+		Short: "Check config, deps, and bootstrap status without starting anything",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			eng := newEngine(cfg)
+			entries := eng.Doctor(cmd.Context())
+
+			if jsonOutput {
+				data, err := json.MarshalIndent(entries, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+				return nil
+			}
+
+			for _, e := range entries {
+				icon := "✓"
+				if e.Status == "fail" {
+					icon = "✗"
+				} else if e.Status == "warn" {
+					icon = "⚠"
+				}
+				label := e.Section
+				if label == "bootstrap" && e.Status == "ok" {
+					label += " (done)"
+				} else if label == "bootstrap" {
+					label += " (needed)"
+				}
+				fmt.Printf("%s %-18s %s\n", icon, e.Name, label)
+				for _, w := range e.Warnings {
+					fmt.Printf("  ⚠ %s\n", w)
+				}
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output as JSON")
+	return cmd
 }
 
 func runCmd() *cobra.Command {
