@@ -76,6 +76,7 @@ func upCmd() *cobra.Command {
 			if err := cfg.ValidateServiceNames(args); err != nil {
 				return err
 			}
+			filter := cfg.ExpandDeps(args)
 			eng := newEngine(cfg)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -84,7 +85,7 @@ func upCmd() *cobra.Command {
 			if err := eng.Preflight(ctx); err != nil {
 				return err
 			}
-			if err := eng.Start(args); err != nil {
+			if err := eng.Start(filter); err != nil {
 				return err
 			}
 
@@ -99,15 +100,15 @@ func upCmd() *cobra.Command {
 					<-sigCh
 					os.Exit(1)
 				}()
-				if len(args) > 0 {
-					eng.StopServices(args)
+				if len(filter) > 0 {
+					eng.StopServices(filter)
 				} else {
 					eng.Shutdown(shutCtx)
 				}
 				cancel()
 			}()
 
-			engine.TailLogs(ctx, eng.LogConfigs(args), os.Stdout)
+			engine.TailLogs(ctx, eng.LogConfigs(filter), os.Stdout)
 			return nil
 		},
 	}
@@ -125,16 +126,17 @@ func startCmd() *cobra.Command {
 			if err := cfg.ValidateServiceNames(args); err != nil {
 				return err
 			}
+			filter := cfg.ExpandDeps(args)
 			eng := newEngine(cfg)
 
 			if err := eng.Preflight(context.Background()); err != nil {
 				return err
 			}
-			if err := eng.Start(args); err != nil {
+			if err := eng.Start(filter); err != nil {
 				return err
 			}
 
-			statuses := eng.Status(args)
+			statuses := eng.Status(filter)
 			out, _ := status.Format(statuses, "")
 			fmt.Println(out)
 			return nil
@@ -179,9 +181,10 @@ func restartCmd() *cobra.Command {
 			if err := cfg.ValidateServiceNames(args); err != nil {
 				return err
 			}
+			filter := cfg.ExpandDeps(args)
 			eng := newEngine(cfg)
-			if len(args) > 0 {
-				eng.StopServices(args)
+			if len(filter) > 0 {
+				eng.StopServices(filter)
 			} else {
 				eng.Stop()
 			}
@@ -189,7 +192,7 @@ func restartCmd() *cobra.Command {
 			if err := eng.Preflight(context.Background()); err != nil {
 				return err
 			}
-			return eng.Start(args)
+			return eng.Start(filter)
 		},
 	}
 }

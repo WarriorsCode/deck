@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -65,13 +66,15 @@ type Hook struct {
 }
 
 type Service struct {
-	Dir       string `yaml:"dir"`
-	Run       string `yaml:"run"`
-	Port      int    `yaml:"port"`
-	Color     string `yaml:"color"`
-	Timestamp *bool  `yaml:"timestamp"`
-	Env       Env    `yaml:"env"`
-	EnvFile   string `yaml:"env_file"`
+	Dir       string   `yaml:"dir"`
+	Run       string   `yaml:"run"`
+	Port      int      `yaml:"port"`
+	Color     string   `yaml:"color"`
+	Timestamp *bool    `yaml:"timestamp"`
+	Env       Env      `yaml:"env"`
+	EnvFile   string   `yaml:"env_file"`
+	DependsOn []string `yaml:"depends_on"`
+	Ready     string   `yaml:"ready"`
 }
 
 func (s Service) TimestampEnabled() bool {
@@ -183,8 +186,64 @@ func validate(cfg *Config) error {
 			errs = append(errs, fmt.Errorf("config: bootstrap step %q: check is required", step.Name))
 		}
 	}
+	cfg.Services.Each(func(name string, svc Service) {
+		for _, dep := range svc.DependsOn {
+			if _, ok := cfg.Services.Get(dep); !ok {
+				errs = append(errs, fmt.Errorf("config: service %q: depends_on %q: unknown service", name, dep))
+			}
+		}
+	})
 	if len(errs) > 0 {
 		return errs[0]
+	}
+	if err := detectCycle(cfg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func detectCycle(cfg *Config) error {
+	// DFS-based cycle detection on the depends_on graph.
+	const (
+		unvisited = 0
+		visiting  = 1
+		visited   = 2
+	)
+	state := make(map[string]int)
+	var path []string
+
+	var visit func(name string) error
+	visit = func(name string) error {
+		if state[name] == visited {
+			return nil
+		}
+		if state[name] == visiting {
+			// Find cycle start in path for a clear error message.
+			for i, p := range path {
+				if p == name {
+					cycle := append(path[i:], name)
+					return fmt.Errorf("config: dependency cycle: %s", strings.Join(cycle, " → "))
+				}
+			}
+			return fmt.Errorf("config: dependency cycle involving %q", name)
+		}
+		state[name] = visiting
+		path = append(path, name)
+		svc, _ := cfg.Services.Get(name)
+		for _, dep := range svc.DependsOn {
+			if err := visit(dep); err != nil {
+				return err
+			}
+		}
+		path = path[:len(path)-1]
+		state[name] = visited
+		return nil
+	}
+
+	for _, name := range cfg.Services.Keys() {
+		if err := visit(name); err != nil {
+			return err
+		}
 	}
 	return nil
 }

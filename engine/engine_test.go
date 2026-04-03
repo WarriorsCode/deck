@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,6 +78,87 @@ func TestEngineStartRollback(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	entries, _ := os.ReadDir(filepath.Join(deckDir, "pids"))
 	assert.Empty(t, entries)
+}
+
+func TestStartRespectsTopoOrder(t *testing.T) {
+	dir := t.TempDir()
+	deckDir := filepath.Join(dir, ".deck")
+	orderFile := filepath.Join(dir, "order")
+
+	cfg := &config.Config{
+		Name: "topo-test",
+		Services: config.MapOf[config.Service](
+			"web", config.Service{Run: "echo web >> " + orderFile + " && sleep 60", DependsOn: []string{"api"}},
+			"api", config.Service{Run: "echo api >> " + orderFile + " && sleep 60"},
+		),
+	}
+
+	eng := New(cfg, dir, deckDir)
+	err := eng.Start(nil)
+	require.NoError(t, err)
+	defer eng.Stop()
+
+	time.Sleep(500 * time.Millisecond)
+	data, err := os.ReadFile(orderFile)
+	require.NoError(t, err)
+	lines := strings.TrimSpace(string(data))
+	assert.Equal(t, "api\nweb", lines)
+}
+
+func TestStartFilterExpandsDeps(t *testing.T) {
+	dir := t.TempDir()
+	deckDir := filepath.Join(dir, ".deck")
+
+	cfg := &config.Config{
+		Name: "expand-test",
+		Services: config.MapOf[config.Service](
+			"web", config.Service{Run: "sleep 60", DependsOn: []string{"api"}},
+			"api", config.Service{Run: "sleep 60"},
+			"worker", config.Service{Run: "sleep 60"},
+		),
+	}
+
+	eng := New(cfg, dir, deckDir)
+	// Start only "web" — should auto-start "api" too, but not "worker".
+	filter := cfg.ExpandDeps([]string{"web"})
+	err := eng.Start(filter)
+	require.NoError(t, err)
+	defer eng.Stop()
+
+	statuses := eng.Status(nil)
+	statusMap := make(map[string]string)
+	for _, s := range statuses {
+		statusMap[s.Name] = s.Status
+	}
+	assert.Equal(t, "running", statusMap["api"])
+	assert.Equal(t, "running", statusMap["web"])
+	assert.Equal(t, "stopped", statusMap["worker"])
+}
+
+func TestStartWithReadyCheck(t *testing.T) {
+	dir := t.TempDir()
+	deckDir := filepath.Join(dir, ".deck")
+	readyMarker := filepath.Join(dir, "ready")
+
+	cfg := &config.Config{
+		Name: "ready-test",
+		Services: config.MapOf[config.Service](
+			// Service creates the ready marker after a short delay.
+			"svc", config.Service{
+				Run:   "sleep 0.5 && touch " + readyMarker + " && sleep 60",
+				Ready: "test -f " + readyMarker,
+			},
+		),
+	}
+
+	eng := New(cfg, dir, deckDir)
+	err := eng.Start(nil)
+	require.NoError(t, err)
+	defer eng.Stop()
+
+	// If we got here, Start() waited for the ready check to pass.
+	_, err = os.Stat(readyMarker)
+	require.NoError(t, err)
 }
 
 func TestShutdownTimesOutHungHook(t *testing.T) {

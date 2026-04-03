@@ -103,11 +103,13 @@ services:
     env_file: ./etc/app.env
     env:
       NO_COLOR: "1"
+    ready: curl -sf http://localhost:4000/healthz
   webapp:
     dir: ./webapp
     run: pnpm dev
     port: 5173
     color: magenta
+    depends_on: [api]
 ```
 
 ### Config fields
@@ -122,6 +124,8 @@ services:
 | `prompt` | bootstrap | Interactive multi-line prompt. Input available as `$DECK_INPUT` and `$DECK_INPUT_FILE`. |
 | `color` | service | Log prefix color (cyan, magenta, yellow, green, blue, red). Auto-assigned if omitted. |
 | `timestamp` | service | Inject timestamps into log lines (default true, auto-detects existing timestamps). |
+| `depends_on` | service | List of services that must start (and be ready) first. |
+| `ready` | service | Shell command polled after start — exit 0 means ready. Blocks dependents until passing. |
 | `port` | service | For status display only. |
 
 ### Local overrides
@@ -148,7 +152,7 @@ deck up -f staging.yaml  # no local merge
 1. **Deps** — checks each dependency, tries start strategies in order until check passes
 2. **Bootstrap** — runs setup steps if their check fails (idempotent), supports interactive prompts and `$(…)` env interpolation
 3. **Hooks** — pre-start hooks run before services, post-stop hooks run on shutdown
-4. **Services** — started as child processes, managed via PID files
+4. **Services** — started in dependency order (topological sort), `ready` checks polled before dependents proceed
 5. **Logs** — tailed with colored `[name]` prefixes, ANSI codes stripped, timestamps auto-detected
 6. **Shutdown** — post-stop hooks → SIGTERM → 5s grace → SIGKILL, process group kill for child cleanup. Second ctrl+c force-exits.
 

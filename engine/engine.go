@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"time"
 
@@ -64,33 +65,67 @@ func (e *Engine) ServiceEnv(svc config.Service) ([]string, error) {
 	return MergeSlice(baseEnv, resolved), nil
 }
 
-// Start launches services in config-defined order.
-// If filter is non-empty, only matching services are started.
+const readyTimeout = 30 * time.Second
+
+// Start launches services in dependency order (topological sort).
+// If filter is non-empty, it is expanded to include transitive dependencies.
+// After starting a service with a ready check, polls until ready before proceeding.
 // On failure, already-started services are rolled back.
 func (e *Engine) Start(filter []string) error {
-	allowed := toSet(filter)
+	order := e.cfg.TopoSort()
+	if len(filter) > 0 {
+		order = e.cfg.ExpandDeps(filter)
+	}
+
 	var started []string
-	err := e.cfg.Services.EachErr(func(name string, svc config.Service) error {
-		if len(allowed) > 0 && !allowed[name] {
-			return nil
-		}
+	for _, name := range order {
+		svc, _ := e.cfg.Services.Get(name)
 		env, err := e.ServiceEnv(svc)
 		if err != nil {
+			e.rollback(started)
 			return fmt.Errorf("service %q: %w", name, err)
 		}
 		if err := e.pm.Start(name, svc, env); err != nil {
+			e.rollback(started)
 			return err
 		}
 		started = append(started, name)
-		return nil
-	})
-	if err != nil {
-		for _, name := range started {
-			e.pm.Stop(name) //nolint:errcheck
+
+		if svc.Ready != "" {
+			svcDir := stepDir(e.dir, svc.Dir)
+			if err := e.waitReady(name, svc.Ready, svcDir, env); err != nil {
+				e.rollback(started)
+				return err
+			}
 		}
-		return err
 	}
 	return nil
+}
+
+func (e *Engine) rollback(started []string) {
+	for _, name := range started {
+		e.pm.Stop(name) //nolint:errcheck
+	}
+}
+
+func (e *Engine) waitReady(name, check, dir string, env []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), readyTimeout)
+	defer cancel()
+
+	slog.Info("waiting for service to be ready", "service", name)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		if CheckShell(ctx, dir, check, env) {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("service %q: ready check timed out after %s", name, readyTimeout)
+		case <-ticker.C:
+		}
+	}
 }
 
 // Shutdown runs post-stop hooks first, then kills services (deck up ordering per spec).
