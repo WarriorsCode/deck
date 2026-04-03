@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.6.0](https://github.com/WarriorsCode/deck/releases/tag/v0.6.0) — 2026-04-03
+
+### Added
+- `env_file` field on bootstrap steps — services, hooks, and bootstrap now all support dotenv files
+- `deck run <service> -- <cmd>` command — run one-off commands in a service's environment (dir, env, env_file)
+- Selective service targeting — all commands (`up`, `start`, `stop`, `restart`, `status`, `logs`) accept `[services...]`
+- `deck doctor` command — check deps, bootstrap, and config status without starting anything (supports `--json`)
+- `depends_on` and `ready` fields on services — dependency-ordered startup with readiness polling
+- `deck init` stack detection — detects Go, Node, Python, Ruby, Rust and generates tailored config with correct package manager
+- `restart` field on services (`always`, `on-failure`) — automatic crash recovery during `deck up`
+
+### Changed
+- Services start in topological order based on `depends_on` graph (cycle detection at config parse time)
+- Selective targeting auto-expands to include transitive dependencies on start/up/restart
+- `deck stop` with service names stops only those services without running post-stop hooks
+
 ## [v0.5.0](https://github.com/WarriorsCode/deck/releases/tag/v0.5.0) — 2026-04-03
 
 ### Added
