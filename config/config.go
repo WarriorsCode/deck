@@ -10,21 +10,65 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Env is a string-to-string map of environment variables.
-type Env map[string]string
+// EnvVar represents a single environment variable definition.
+// It can be specified in YAML as a plain string or as an object with value/script/file.
+type EnvVar struct {
+	Value  string `yaml:"value"`
+	Script string `yaml:"script"`
+	File   string `yaml:"file"`
+}
+
+func (v *EnvVar) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind == yaml.ScalarNode {
+		v.Value = node.Value
+		return nil
+	}
+	type raw EnvVar
+	return node.Decode((*raw)(v))
+}
+
+// IsStatic returns true if the var is a plain literal (no script, no file, no $(…) interpolation).
+func (v EnvVar) IsStatic() bool {
+	return v.Script == "" && v.File == "" && !strings.Contains(v.Value, "$(")
+}
+
+// Raw returns the raw string for legacy callers. For script/file vars this returns "".
+func (v EnvVar) Raw() string { return v.Value }
+
+// Env is a map of environment variable definitions.
+type Env map[string]EnvVar
 
 // Merge copies all entries from other into e. Existing keys are overwritten.
 func (e Env) Merge(other Env) {
 	maps.Copy(e, other)
 }
 
+// Resolved returns a plain string map with only the static/value entries.
+// Script and file entries are left empty — they need runtime resolution.
+func (e Env) Resolved() map[string]string {
+	m := make(map[string]string, len(e))
+	for k, v := range e {
+		m[k] = v.Value
+	}
+	return m
+}
+
 // ToSlice converts to the []string format expected by exec.Cmd.Env.
 func (e Env) ToSlice() []string {
 	s := make([]string, 0, len(e))
 	for k, v := range e {
-		s = append(s, k+"="+v)
+		s = append(s, k+"="+v.Value)
 	}
 	return s
+}
+
+// StringEnv creates an Env from a plain string map (for test convenience).
+func StringEnv(m map[string]string) Env {
+	e := make(Env, len(m))
+	for k, v := range m {
+		e[k] = EnvVar{Value: v}
+	}
+	return e
 }
 
 type Config struct {

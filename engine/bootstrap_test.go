@@ -72,7 +72,7 @@ func TestBootstrapStepEnvLiteral(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "result")
 	steps := []config.BootstrapStep{
-		{Name: "Env test", Check: "false", Run: "echo $MY_VAR > " + marker, Env: map[string]string{"MY_VAR": "hello"}},
+		{Name: "Env test", Check: "false", Run: "echo $MY_VAR > " + marker, Env: config.StringEnv(map[string]string{"MY_VAR": "hello"})},
 	}
 	err := RunBootstrap(context.Background(), ".", steps, nil)
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestBootstrapStepEnvInterpolation(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "result")
 	steps := []config.BootstrapStep{
-		{Name: "Interpolate", Check: "false", Run: "echo $GREETING > " + marker, Env: map[string]string{"GREETING": "$(echo world)"}},
+		{Name: "Interpolate", Check: "false", Run: "echo $GREETING > " + marker, Env: config.StringEnv(map[string]string{"GREETING": "$(echo world)"})},
 	}
 	err := RunBootstrap(context.Background(), ".", steps, nil)
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestBootstrapStepEnvInterpolation(t *testing.T) {
 
 func TestBootstrapStepEnvAvailableInCheck(t *testing.T) {
 	steps := []config.BootstrapStep{
-		{Name: "Check sees env", Check: "test $MY_FLAG = yes", Run: "false", Env: map[string]string{"MY_FLAG": "yes"}},
+		{Name: "Check sees env", Check: "test $MY_FLAG = yes", Run: "false", Env: config.StringEnv(map[string]string{"MY_FLAG": "yes"})},
 	}
 	// Check should pass thanks to env, so run (which would fail) is never called.
 	err := RunBootstrap(context.Background(), ".", steps, nil)
@@ -108,7 +108,7 @@ func TestBootstrapStepEnvOverridesGlobal(t *testing.T) {
 	marker := filepath.Join(dir, "result")
 	globalEnv := []string{"MY_VAR=global"}
 	steps := []config.BootstrapStep{
-		{Name: "Override", Check: "false", Run: "echo $MY_VAR > " + marker, Env: map[string]string{"MY_VAR": "step"}},
+		{Name: "Override", Check: "false", Run: "echo $MY_VAR > " + marker, Env: config.StringEnv(map[string]string{"MY_VAR": "step"})},
 	}
 	err := RunBootstrap(context.Background(), ".", steps, globalEnv)
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestBootstrapStepEnvFailedInterpolation(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "result")
 	steps := []config.BootstrapStep{
-		{Name: "Bad cmd", Check: "false", Run: "echo [$MISSING] > " + marker, Env: map[string]string{"MISSING": "$(cat /nonexistent/xxx)"}},
+		{Name: "Bad cmd", Check: "false", Run: "echo [$MISSING] > " + marker, Env: config.StringEnv(map[string]string{"MISSING": "$(cat /nonexistent/xxx)"})},
 	}
 	err := RunBootstrap(context.Background(), ".", steps, nil)
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestBootstrapStepEnvNotVisibleToNextStep(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "result")
 	steps := []config.BootstrapStep{
-		{Name: "Step 1", Check: "false", Run: "true", Env: map[string]string{"STEP1_VAR": "secret"}},
+		{Name: "Step 1", Check: "false", Run: "true", Env: config.StringEnv(map[string]string{"STEP1_VAR": "secret"})},
 		{Name: "Step 2", Check: "false", Run: "echo [$STEP1_VAR] > " + marker},
 	}
 	err := RunBootstrap(context.Background(), ".", steps, nil)
@@ -168,7 +168,7 @@ func TestBootstrapEnvFileOverriddenByStepEnv(t *testing.T) {
 	require.NoError(t, os.WriteFile(envFile, []byte("MY_VAR=file\n"), 0644))
 
 	steps := []config.BootstrapStep{
-		{Name: "Override", Check: "false", Run: "echo $MY_VAR > " + marker, EnvFile: envFile, Env: map[string]string{"MY_VAR": "step"}},
+		{Name: "Override", Check: "false", Run: "echo $MY_VAR > " + marker, EnvFile: envFile, Env: config.StringEnv(map[string]string{"MY_VAR": "step"})},
 	}
 	err := RunBootstrap(context.Background(), ".", steps, nil)
 	require.NoError(t, err)

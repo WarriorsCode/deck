@@ -20,7 +20,7 @@ func BuildEnv(globalEnv config.Env, envFile string, stepEnv config.Env) ([]strin
 
 	for _, e := range os.Environ() {
 		k, v, _ := strings.Cut(e, "=")
-		env[k] = v
+		env[k] = config.EnvVar{Value: v}
 	}
 	env.Merge(globalEnv)
 
@@ -45,37 +45,62 @@ func MergeSlice(base []string, overlay config.Env) []string {
 	merged := make(config.Env, len(base)+len(overlay))
 	for _, e := range base {
 		k, v, _ := strings.Cut(e, "=")
-		merged[k] = v
+		merged[k] = config.EnvVar{Value: v}
 	}
 	merged.Merge(overlay)
 	return merged.ToSlice()
 }
 
-// ResolveEnv evaluates an env map, interpolating $(…) shell expressions.
-// Values containing $(…) are passed through `sh -c 'printf "%s" <value>'` to let
-// the shell handle all substitution (including nesting and quoting).
-// Literal values (no $(…)) are used as-is. If a command fails, the value is set
-// to empty string and a warning is logged.
+// ResolveEnv evaluates an env map, handling three modes:
+//   - value with $(…): shell interpolation via sh -c
+//   - script: explicit shell command evaluation
+//   - file: read value from structured file (JSON, YAML, TOML, INI)
+//   - plain value: used as-is
+//
+// If a command/read fails, the value is set to empty string and a warning is logged.
 func ResolveEnv(ctx context.Context, dir string, raw config.Env, baseEnv []string) config.Env {
 	if len(raw) == 0 {
 		return nil
 	}
 	resolved := make(config.Env, len(raw))
 	for k, v := range raw {
-		if !strings.Contains(v, "$(") {
+		switch {
+		case v.File != "":
+			val, err := ReadFileValue(v.File)
+			if err != nil {
+				slog.Warn("env file read failed", "key", k, "error", err)
+				resolved[k] = config.EnvVar{}
+				continue
+			}
+			resolved[k] = config.EnvVar{Value: val}
+
+		case v.Script != "":
+			cmd := exec.CommandContext(ctx, "sh", "-c", v.Script)
+			cmd.Dir = dir
+			cmd.Env = baseEnv
+			out, err := cmd.Output()
+			if err != nil {
+				slog.Warn("env script failed", "key", k, "error", err)
+				resolved[k] = config.EnvVar{}
+				continue
+			}
+			resolved[k] = config.EnvVar{Value: strings.TrimRight(string(out), "\n")}
+
+		case strings.Contains(v.Value, "$("):
+			cmd := exec.CommandContext(ctx, "sh", "-c", `printf '%s' `+v.Value)
+			cmd.Dir = dir
+			cmd.Env = baseEnv
+			out, err := cmd.Output()
+			if err != nil {
+				slog.Warn("env interpolation failed", "key", k, "error", err)
+				resolved[k] = config.EnvVar{}
+				continue
+			}
+			resolved[k] = config.EnvVar{Value: string(out)}
+
+		default:
 			resolved[k] = v
-			continue
 		}
-		cmd := exec.CommandContext(ctx, "sh", "-c", `printf '%s' `+v)
-		cmd.Dir = dir
-		cmd.Env = baseEnv
-		out, err := cmd.Output()
-		if err != nil {
-			slog.Warn("env interpolation failed", "key", k, "error", err)
-			resolved[k] = ""
-			continue
-		}
-		resolved[k] = string(out)
 	}
 	return resolved
 }
@@ -105,7 +130,7 @@ func ParseEnvFile(path string) (config.Env, error) {
 		if len(v) >= 2 && ((v[0] == '\'' && v[len(v)-1] == '\'') || (v[0] == '"' && v[len(v)-1] == '"')) {
 			v = v[1 : len(v)-1]
 		}
-		env[k] = v
+		env[k] = config.EnvVar{Value: v}
 	}
 	return env, scanner.Err()
 }

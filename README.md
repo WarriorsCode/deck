@@ -72,8 +72,10 @@ bootstrap:
 
   - name: Create database
     env:
-      PG_HOST: "$(sed -n '/^\[db\]/,/^\[/p' api/etc/app.conf | grep host | cut -d= -f2 | tr -d ' ')"
-      PG_USER: "$(sed -n '/^\[db\]/,/^\[/p' api/etc/app.conf | grep user | cut -d= -f2 | tr -d ' ')"
+      PG_HOST:
+        file: "api/etc/app.conf | db.host"
+      PG_USER:
+        file: "api/etc/app.conf | db.user"
     check: psql -h $PG_HOST -U $PG_USER -d myapp -c 'SELECT 1' 2>/dev/null
     run: createdb -h $PG_HOST -U $PG_USER myapp
 
@@ -116,7 +118,7 @@ services:
 
 | Field | Where | Description |
 |-------|-------|-------------|
-| `env` | top-level, service, bootstrap, hook | Key-value env vars. Step-level merges on top of global. Supports `$(…)` shell interpolation. |
+| `env` | top-level, service, bootstrap, hook | Env vars — string value, `$(…)` interpolation, or object with `value`/`script`/`file` (see below). |
 | `env_file` | service, hook, bootstrap | Path to a dotenv file loaded before running. |
 | `dir` | service, bootstrap, hook | Working directory for the command. |
 | `check` | dep, bootstrap | Shell command — exit 0 means "already done, skip". |
@@ -128,6 +130,33 @@ services:
 | `ready` | service | Shell command polled after start — exit 0 means ready. Blocks dependents until passing. |
 | `restart` | service | Restart policy: `always`, `on-failure`, or omit for no restart. Active during `deck up`. |
 | `port` | service | For status display only. |
+
+### Env var syntax
+
+Env vars can be a plain string or an object:
+
+```yaml
+env:
+  # Plain string
+  NO_COLOR: "1"
+
+  # Shell interpolation (legacy syntax, still supported)
+  PG_HOST: "$(grep host config.ini | cut -d= -f2)"
+
+  # Explicit script — stdout becomes the value
+  PG_HOST:
+    script: "grep host config.ini | cut -d= -f2"
+
+  # Read from structured file — supports .json, .yaml, .toml, .conf/.ini
+  PG_HOST:
+    file: "api/etc/app.conf | db.host"
+
+  # Static value (same as plain string)
+  PG_PORT:
+    value: "5432"
+```
+
+The `file` format is `path | key.path` where the key path uses dots to traverse nested sections. For INI/conf files, section headers become the first key level: `[db]` + `host = localhost` → `db.host`.
 
 ### Local overrides
 

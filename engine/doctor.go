@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/warriorscode/deck/config"
 )
@@ -130,13 +129,13 @@ func resolveEnvWithWarnings(ctx context.Context, dir string, raw config.Env, bas
 	}
 	resolved := make(config.Env, len(raw))
 	for k, v := range raw {
-		if !strings.Contains(v, "$(") {
+		if v.IsStatic() {
 			resolved[k] = v
 			continue
 		}
 		out := ResolveEnv(ctx, dir, config.Env{k: v}, baseEnv)
-		if val, ok := out[k]; ok && val == "" {
-			*warnings = append(*warnings, fmt.Sprintf("interpolation returned empty: %s=%s", k, v))
+		if val, ok := out[k]; ok && val.Value == "" {
+			*warnings = append(*warnings, fmt.Sprintf("env resolution returned empty: %s", k))
 		}
 		if val, ok := out[k]; ok {
 			resolved[k] = val
@@ -149,13 +148,13 @@ func resolveEnvWithWarnings(ctx context.Context, dir string, raw config.Env, bas
 func userEnvOnly(global config.Env, step config.Env, envFile string) []string {
 	var out []string
 	for k, v := range global {
-		out = append(out, k+"="+v)
+		out = append(out, k+"="+v.Value)
 	}
 	if envFile != "" {
 		out = append(out, "(env_file: "+envFile+")")
 	}
 	for k, v := range step {
-		out = append(out, k+"="+v)
+		out = append(out, k+"="+v.Value)
 	}
 	return out
 }

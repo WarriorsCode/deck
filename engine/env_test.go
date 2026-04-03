@@ -27,11 +27,11 @@ EMPTY=
 
 	env, err := ParseEnvFile(envFile)
 	require.NoError(t, err)
-	assert.Equal(t, "localhost", env["DB_HOST"])
-	assert.Equal(t, "5432", env["DB_PORT"])
-	assert.Equal(t, "hello world", env["QUOTED_SINGLE"])
-	assert.Equal(t, "foo bar", env["QUOTED_DOUBLE"])
-	assert.Equal(t, "", env["EMPTY"])
+	assert.Equal(t, "localhost", env["DB_HOST"].Value)
+	assert.Equal(t, "5432", env["DB_PORT"].Value)
+	assert.Equal(t, "hello world", env["QUOTED_SINGLE"].Value)
+	assert.Equal(t, "foo bar", env["QUOTED_DOUBLE"].Value)
+	assert.Equal(t, "", env["EMPTY"].Value)
 }
 
 func TestParseEnvFileNotFound(t *testing.T) {
@@ -44,8 +44,8 @@ func TestBuildEnvPrecedence(t *testing.T) {
 	envFile := filepath.Join(dir, "test.env")
 	require.NoError(t, os.WriteFile(envFile, []byte("A=from_file\nB=from_file\n"), 0644))
 
-	globalEnv := config.Env{"A": "from_global", "B": "from_global", "C": "from_global"}
-	stepEnv := config.Env{"A": "from_step"}
+	globalEnv := config.StringEnv(map[string]string{"A": "from_global", "B": "from_global", "C": "from_global"})
+	stepEnv := config.StringEnv(map[string]string{"A": "from_step"})
 
 	result, err := BuildEnv(globalEnv, envFile, stepEnv)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func cutString(s, sep string) (string, string, bool) {
 }
 
 func TestBuildEnvNoFile(t *testing.T) {
-	globalEnv := config.Env{"FOO": "bar"}
+	globalEnv := config.StringEnv(map[string]string{"FOO": "bar"})
 	result, err := BuildEnv(globalEnv, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "bar", toMap(result)["FOO"])
@@ -89,19 +89,35 @@ func TestBuildEnvNilEverything(t *testing.T) {
 }
 
 func TestResolveEnvLiteral(t *testing.T) {
-	resolved := ResolveEnv(context.Background(), ".", config.Env{"FOO": "bar", "BAZ": "qux"}, nil)
-	assert.Equal(t, "bar", resolved["FOO"])
-	assert.Equal(t, "qux", resolved["BAZ"])
+	resolved := ResolveEnv(context.Background(), ".", config.StringEnv(map[string]string{"FOO": "bar", "BAZ": "qux"}), nil)
+	assert.Equal(t, "bar", resolved["FOO"].Value)
+	assert.Equal(t, "qux", resolved["BAZ"].Value)
 }
 
 func TestResolveEnvInterpolation(t *testing.T) {
-	resolved := ResolveEnv(context.Background(), ".", config.Env{"GREETING": "$(echo hello)"}, nil)
-	assert.Equal(t, "hello", resolved["GREETING"])
+	resolved := ResolveEnv(context.Background(), ".", config.StringEnv(map[string]string{"GREETING": "$(echo hello)"}), nil)
+	assert.Equal(t, "hello", resolved["GREETING"].Value)
 }
 
 func TestResolveEnvFailedCommand(t *testing.T) {
-	resolved := ResolveEnv(context.Background(), ".", config.Env{"MISSING": "$(cat /nonexistent/file/xxx)"}, nil)
-	assert.Equal(t, "", resolved["MISSING"])
+	resolved := ResolveEnv(context.Background(), ".", config.StringEnv(map[string]string{"MISSING": "$(cat /nonexistent/file/xxx)"}), nil)
+	assert.Equal(t, "", resolved["MISSING"].Value)
+}
+
+func TestResolveEnvScript(t *testing.T) {
+	env := config.Env{"NAME": config.EnvVar{Script: "printf alice"}}
+	resolved := ResolveEnv(context.Background(), ".", env, nil)
+	assert.Equal(t, "alice", resolved["NAME"].Value)
+}
+
+func TestResolveEnvFile(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "config.json")
+	require.NoError(t, os.WriteFile(f, []byte(`{"db": {"host": "pg.local"}}`), 0644))
+
+	env := config.Env{"PG_HOST": config.EnvVar{File: f + " | db.host"}}
+	resolved := ResolveEnv(context.Background(), ".", env, nil)
+	assert.Equal(t, "pg.local", resolved["PG_HOST"].Value)
 }
 
 func TestResolveEnvNil(t *testing.T) {
@@ -110,7 +126,7 @@ func TestResolveEnvNil(t *testing.T) {
 
 func TestMergeSlice(t *testing.T) {
 	base := []string{"A=1", "B=2"}
-	step := config.Env{"B": "override", "C": "3"}
+	step := config.StringEnv(map[string]string{"B": "override", "C": "3"})
 	merged := MergeSlice(base, step)
 
 	m := toMap(merged)

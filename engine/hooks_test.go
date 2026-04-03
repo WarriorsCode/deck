@@ -55,7 +55,7 @@ func TestHooksWithStepEnv(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "result")
 	hooks := []config.Hook{
-		{Name: "Env hook", Run: "echo $HOOK_VAL > " + marker, Env: map[string]string{"HOOK_VAL": "$(echo interpolated)"}},
+		{Name: "Env hook", Run: "echo $HOOK_VAL > " + marker, Env: config.StringEnv(map[string]string{"HOOK_VAL": "$(echo interpolated)"})},
 	}
 	err := RunHooks(context.Background(), ".", hooks, false, nil)
 	require.NoError(t, err)
