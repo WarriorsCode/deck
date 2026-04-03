@@ -16,6 +16,7 @@ import (
 	deck "github.com/warriorscode/deck"
 	"github.com/warriorscode/deck/config"
 	"github.com/warriorscode/deck/engine"
+	"github.com/warriorscode/deck/scaffold"
 	"github.com/warriorscode/deck/status"
 )
 
@@ -349,42 +350,24 @@ func initCmd() *cobra.Command {
 		Short: "Initialize deck.yaml and .gitignore",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := os.Stat("deck.yaml"); os.IsNotExist(err) {
-				scaffold := `# deck.yaml — local dev stack configuration
-# See: https://github.com/warriorscode/deck
+				dir, _ := os.Getwd()
+				projectName := filepath.Base(dir)
+				stacks := scaffold.Detect(dir)
+				content := scaffold.Generate(stacks, projectName)
 
-name: myproject
+				if len(stacks) > 0 {
+					var names []string
+					for _, s := range stacks {
+						label := s.Name
+						if s.Dir != "." {
+							label += " (" + s.Dir + ")"
+						}
+						names = append(names, label)
+					}
+					fmt.Printf("Detected: %s\n", strings.Join(names, ", "))
+				}
 
-# One-time setup tasks. Only run if check fails.
-# bootstrap:
-#   - name: Install deps
-#     check: test -d node_modules
-#     run: npm install
-
-# External dependencies.
-# deps:
-#   postgres:
-#     check: pg_isready -h 127.0.0.1
-#     start:
-#       - docker run -d --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
-#     stop:
-#       - docker stop postgres && docker rm postgres
-
-# Lifecycle hooks.
-# hooks:
-#   pre-start:
-#     - name: Run migrations
-#       run: migrate up
-#   post-stop: []
-
-# Services to manage.
-services:
-  app:
-    run: echo "replace with your start command"
-    # dir: ./src
-    # port: 3000
-    # color: cyan
-`
-				if err := os.WriteFile("deck.yaml", []byte(scaffold), 0644); err != nil {
+				if err := os.WriteFile("deck.yaml", []byte(content), 0644); err != nil {
 					return err
 				}
 				fmt.Println("Created deck.yaml")
