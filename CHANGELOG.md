@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.7.0](https://github.com/WarriorsCode/deck/releases/tag/v0.7.0) — 2026-04-03
+
+### Added
+- Env vars now support object syntax with `value`, `script`, and `file` modes
+- `file` mode reads values from structured files (JSON, YAML, TOML, INI/conf) using `path | key.path` dot-separated traversal
+- `script` mode runs a shell command and captures stdout as the value
+- INI/conf parser supports `[section]` headers, comments, and quoted values
+
+### Changed
+- `Env` type internally uses `EnvVar` struct instead of plain strings — YAML unmarshalling is fully backward-compatible (plain strings still work)
+
 ## [v0.6.0](https://github.com/WarriorsCode/deck/releases/tag/v0.6.0) — 2026-04-03
 
 ### Added
