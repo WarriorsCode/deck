@@ -1,0 +1,37 @@
+title: deck
+description: Lightweight local dev orchestrator. One command to bootstrap and run your entire stack.
+url: "https://warriorscode.dev"
+baseurl: "/deck"
+
+remote_theme: just-the-docs/just-the-docs@v0.10.1
+
+color_scheme: dark
+
+logo: "/assets/icon.png"
+
+aux_links:
+  GitHub: https://github.com/WarriorsCode/deck
+
+aux_links_new_tab: true
+
+nav_enabled: true
+
+heading_anchors: true
+
+search_enabled: true
+
+back_to_top: true
+back_to_top_text: "Back to top"
+
+footer_content: "MIT License. Built with <a href=\"https://just-the-docs.com\">Just the Docs</a>."
+
+callouts:
+  tip:
+    title: Tip
+    color: green
+  note:
+    title: Note
+    color: blue
+  warning:
+    title: Warning
+    color: yellow
